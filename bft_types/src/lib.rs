@@ -35,3 +35,9 @@ struct BfProgram{
     instructions: Vec<Instruction>
 }
 
+impl BfProgram{
+    fn from_file(file_path: &Path) -> std::io::Result<BfProgram>{
+        
+    }
+}
+
