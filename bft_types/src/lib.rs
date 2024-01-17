@@ -3,7 +3,7 @@ use std::fs;
 use std::path::Path;
 
 #[derive(Debug)]
-enum Instruction {
+pub enum Instruction {
     MoveLeft,
     MoveRight,
     Increment,
@@ -32,13 +32,14 @@ impl Instruction {
 
 #[derive(Debug)]
 pub struct BfProgram {
+    // TODO: check members here are private
     name: Box<OsStr>,
     instructions: Vec<Instruction>,
 }
 
 impl BfProgram {
     // TODO: check file_path typing
-    fn from_file(file_path: &Path) -> Result<BfProgram, Box<dyn std::error::Error>> {
+    pub fn from_file(file_path: &Path) -> Result<BfProgram, Box<dyn std::error::Error>> {
         let file_name = file_path.file_name().ok_or("No filename provided")?;
         let file_contents = fs::read_to_string(file_path)?;
         Ok(Self::new(file_name, file_contents.as_str()))
@@ -60,5 +61,13 @@ impl BfProgram {
             name: filename.into(),
             instructions,
         }
+    }
+
+    pub fn name(&self) -> &OsStr {
+        &self.name
+    }
+
+    pub fn instructions(&self) -> &[Instruction] {
+        &self.instructions[..]
     }
 }
