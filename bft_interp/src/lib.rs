@@ -6,6 +6,7 @@ pub struct VirtualMachine<T> {
 }
 
 impl<T> VirtualMachine<T> {
+    // TODO: look into taking Option<NonZeroUsize> rather than usize here
     pub fn new(mut tape_size: usize, tape_can_grow: bool) -> Self {
         if tape_size == 0 {
             tape_size = 30000;
