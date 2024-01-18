@@ -1,4 +1,5 @@
 use std::ffi::OsStr;
+use std::fmt::Display;
 use std::fs;
 use std::path::Path;
 
@@ -27,6 +28,23 @@ impl Instruction {
             ']' => Some(Instruction::ConditionalJumpBackward),
             _ => None,
         }
+    }
+}
+
+impl Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let description = match self {
+            Instruction::MoveLeft => "MoveLeft",
+            Instruction::MoveRight => "MoveRight",
+            Instruction::Increment => "Increment",
+            Instruction::Decrement => "Decrement",
+            Instruction::Input => "Input",
+            Instruction::Output => "Output",
+            Instruction::ConditionalJumpForward => "ConditionalJumpForward",
+            Instruction::ConditionalJumpBackward => "ConditionalJumpBackward",
+        };
+
+        write!(f, "{}", description)
     }
 }
 
