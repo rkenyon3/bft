@@ -21,7 +21,7 @@ impl<T> VirtualMachine<T> {
         }
     }
 
-    pub fn cell_value(self, address: usize) -> Result<&T, Box<dyn std::error::Error>> {
+    pub fn cell_value(&self, address: usize) -> Result<&T, Box<dyn std::error::Error>> {
         // TODO: check that this is safe
         Ok(&self.cells[address])
     }

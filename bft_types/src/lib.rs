@@ -49,21 +49,29 @@ impl Display for InstructionType {
 }
 
 #[derive(Debug)]
-pub struct Instruction{
+pub struct Instruction {
     instruction_type: InstructionType,
     line_num: usize,
-    column_num: usize
+    column_num: usize,
 }
 
-impl Instruction{
-    pub fn new(instruction_type: InstructionType, line_num: usize, column_num: usize) -> Self{
-    Self{instruction_type, line_num, column_num}
+impl Instruction {
+    pub fn new(instruction_type: InstructionType, line_num: usize, column_num: usize) -> Self {
+        Self {
+            instruction_type,
+            line_num,
+            column_num,
+        }
     }
 }
 
-impl Display for Instruction{
+impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}\t{}", self.line_num, self.column_num, self.instruction_type)
+        write!(
+            f,
+            "{}:{}\t{}",
+            self.line_num, self.column_num, self.instruction_type
+        )
     }
 }
 
@@ -87,12 +95,12 @@ impl BfProgram {
         let mut instructions: Vec<Instruction> = Vec::new();
 
         // TODO: see if this can be shortened
-        for (line_number, file_line) in file_contents.lines().enumerate(){
+        for (line_number, file_line) in file_contents.lines().enumerate() {
             for (col_number, character) in file_line.chars().enumerate() {
                 match InstructionType::from_char(character) {
                     None => (),
                     Some(instr) => {
-                        instructions.push(Instruction::new(instr,line_number,col_number));
+                        instructions.push(Instruction::new(instr, line_number, col_number));
                     }
                 }
             }
