@@ -1,6 +1,6 @@
 use bft_interp::VirtualMachine;
 use bft_types::BfProgram;
-use std::env::{self, Args};
+use std::env::{self};
 use std::path::PathBuf;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
