@@ -4,7 +4,7 @@ use std::fs;
 use std::path::Path;
 
 #[derive(Debug)]
-pub enum Instruction {
+pub enum InstructionType {
     MoveLeft,
     MoveRight,
     Increment,
@@ -15,36 +15,55 @@ pub enum Instruction {
     ConditionalJumpBackward,
 }
 
-impl Instruction {
-    pub fn from_char(c: char) -> Option<Instruction> {
+impl InstructionType {
+    pub fn from_char(c: char) -> Option<InstructionType> {
         match c {
-            '<' => Some(Instruction::MoveLeft),
-            '>' => Some(Instruction::MoveRight),
-            '+' => Some(Instruction::Increment),
-            '-' => Some(Instruction::Decrement),
-            '.' => Some(Instruction::Input),
-            ',' => Some(Instruction::Output),
-            '[' => Some(Instruction::ConditionalJumpForward),
-            ']' => Some(Instruction::ConditionalJumpBackward),
+            '<' => Some(InstructionType::MoveLeft),
+            '>' => Some(InstructionType::MoveRight),
+            '+' => Some(InstructionType::Increment),
+            '-' => Some(InstructionType::Decrement),
+            '.' => Some(InstructionType::Input),
+            ',' => Some(InstructionType::Output),
+            '[' => Some(InstructionType::ConditionalJumpForward),
+            ']' => Some(InstructionType::ConditionalJumpBackward),
             _ => None,
         }
     }
 }
 
-impl Display for Instruction {
+impl Display for InstructionType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let description = match self {
-            Instruction::MoveLeft => "MoveLeft",
-            Instruction::MoveRight => "MoveRight",
-            Instruction::Increment => "Increment",
-            Instruction::Decrement => "Decrement",
-            Instruction::Input => "Input",
-            Instruction::Output => "Output",
-            Instruction::ConditionalJumpForward => "ConditionalJumpForward",
-            Instruction::ConditionalJumpBackward => "ConditionalJumpBackward",
+            InstructionType::MoveLeft => "MoveLeft",
+            InstructionType::MoveRight => "MoveRight",
+            InstructionType::Increment => "Increment",
+            InstructionType::Decrement => "Decrement",
+            InstructionType::Input => "Input",
+            InstructionType::Output => "Output",
+            InstructionType::ConditionalJumpForward => "ConditionalJumpForward",
+            InstructionType::ConditionalJumpBackward => "ConditionalJumpBackward",
         };
 
         write!(f, "{}", description)
+    }
+}
+
+#[derive(Debug)]
+pub struct Instruction{
+    instruction_type: InstructionType,
+    line_num: usize,
+    column_num: usize
+}
+
+impl Instruction{
+    pub fn new(instruction_type: InstructionType, line_num: usize, column_num: usize) -> Self{
+    Self{instruction_type, line_num, column_num}
+    }
+}
+
+impl Display for Instruction{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}\t{}", self.line_num, self.column_num, self.instruction_type)
     }
 }
 
@@ -68,10 +87,14 @@ impl BfProgram {
         let mut instructions: Vec<Instruction> = Vec::new();
 
         // TODO: see if this can be shortened
-        for c in file_contents.chars() {
-            match Instruction::from_char(c) {
-                None => (),
-                Some(instr) => instructions.push(instr),
+        for (line_number, file_line) in file_contents.lines().enumerate(){
+            for (col_number, character) in file_line.chars().enumerate() {
+                match InstructionType::from_char(character) {
+                    None => (),
+                    Some(instr) => {
+                        instructions.push(Instruction::new(instr,line_number,col_number));
+                    }
+                }
             }
         }
 
