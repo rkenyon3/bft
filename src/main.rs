@@ -1,3 +1,5 @@
+//! Program to take a Brainfuck program at the specified file path and 'run' it
+
 use bft_interp::VirtualMachine;
 use bft_types::BfProgram;
 use std::env::{self};
