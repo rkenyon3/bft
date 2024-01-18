@@ -30,7 +30,7 @@ impl<T> VirtualMachine<T> {
         self.cells.reserve(cell_count_to_add);
     }
 
-    pub fn print_program(program: &BfProgram) {
+    pub fn print_program(self, program: &BfProgram) {
         for instruction in program.instructions().iter() {
             println!("{}", instruction)
         }
