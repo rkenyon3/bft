@@ -1,5 +1,5 @@
 //! Brainfuck program interpreter
-//! 
+//!
 //! Creates a virtual machine with a memory tape of cells of type T, and can accept and (eventually)
 //! run a program
 

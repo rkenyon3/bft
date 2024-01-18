@@ -10,7 +10,7 @@ use std::path::Path;
 pub enum InstructionType {
     /// Increment the data pointer by one (to point to the next cell to the right).
     MoveLeft,
-    /// Decrement the data pointer by one (to point to the next cell to the left). 
+    /// Decrement the data pointer by one (to point to the next cell to the left).
     MoveRight,
     /// Increment the byte at the data pointer by one.
     Increment,
@@ -87,11 +87,12 @@ impl Display for Instruction {
         write!(
             f,
             "{}:{}\t{}",
-            self.line_num + 1, self.column_num + 1, self.instruction_type
+            self.line_num + 1,
+            self.column_num + 1,
+            self.instruction_type
         )
     }
 }
-
 
 /// Representation of a Brainfuck program, including it's name and a vector of Instructions
 #[derive(Debug)]
