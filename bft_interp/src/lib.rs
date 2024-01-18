@@ -1,3 +1,5 @@
+use bft_types::BfProgram;
+
 #[derive(Debug)]
 pub struct VirtualMachine<T> {
     cells: Vec<T>,
@@ -19,12 +21,18 @@ impl<T> VirtualMachine<T> {
         }
     }
 
-    pub fn cell_value(&self, address: usize) -> Result<&T, Box<dyn std::error::Error>>{
+    pub fn cell_value(&self, address: usize) -> Result<&T, Box<dyn std::error::Error>> {
         // TODO: check that this is safe
         Ok(&self.cells[address])
     }
 
     pub fn grow_tape(mut self, cell_count_to_add: usize) {
         self.cells.reserve(cell_count_to_add);
+    }
+
+    pub fn print_program(program: &BfProgram) {
+        for instruction in program.instructions().iter() {
+            println!("{}", instruction)
+        }
     }
 }
