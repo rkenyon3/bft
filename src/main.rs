@@ -9,5 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bf_program = BfProgram::from_file(file_path.as_path())?;
     let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(30000, false);
 
+    bf_interpreter.print_program(&bf_program);
+
     Ok(())
 }
