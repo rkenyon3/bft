@@ -3,7 +3,7 @@ use std::fmt::Display;
 use std::fs;
 use std::path::Path;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum InstructionType {
     MoveLeft,
     MoveRight,
@@ -48,7 +48,7 @@ impl Display for InstructionType {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Instruction {
     instruction_type: InstructionType,
     line_num: usize,
@@ -118,5 +118,63 @@ impl BfProgram {
 
     pub fn instructions(&self) -> &[Instruction] {
         &self.instructions[..]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_chars() {
+        assert_eq!(
+            InstructionType::from_char('<'),
+            Some(InstructionType::MoveLeft)
+        );
+        assert_eq!(
+            InstructionType::from_char('>'),
+            Some(InstructionType::MoveRight)
+        );
+        assert_eq!(
+            InstructionType::from_char('+'),
+            Some(InstructionType::Increment)
+        );
+        assert_eq!(
+            InstructionType::from_char('-'),
+            Some(InstructionType::Decrement)
+        );
+        assert_eq!(
+            InstructionType::from_char('.'),
+            Some(InstructionType::Input)
+        );
+        assert_eq!(
+            InstructionType::from_char(','),
+            Some(InstructionType::Output)
+        );
+        assert_eq!(
+            InstructionType::from_char('['),
+            Some(InstructionType::ConditionalJumpForward)
+        );
+        assert_eq!(
+            InstructionType::from_char(']'),
+            Some(InstructionType::ConditionalJumpBackward)
+        );
+    }
+
+    #[test]
+    fn parse_program() {
+        let filename = OsStr::new("test_file.bf");
+        let lines = "_<\n__<\n";
+        let placeholder_instruction_type = InstructionType::from_char('<').unwrap(); // probably shouldn't use unwrap here but I'm getting fed up of this and it'll do for now
+
+        let bf_program = BfProgram::new(filename, lines);
+
+        assert_eq!(bf_program.name(), filename);
+
+        let expected_instruction = Instruction::new(placeholder_instruction_type.clone(), 0, 1);
+        assert_eq!(bf_program.instructions.get(0), Some(&expected_instruction));
+
+        let expected_instruction = Instruction::new(placeholder_instruction_type.clone(), 1, 2);
+        assert_eq!(bf_program.instructions.get(1), Some(&expected_instruction));
     }
 }
