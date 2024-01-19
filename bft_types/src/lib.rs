@@ -107,7 +107,7 @@ impl BfProgram {
     // TODO: check file_path typing
     /// Attempt to load a valid Brainfuck program from the specified file path
     pub fn from_file(file_path: &Path) -> Result<BfProgram, Box<dyn std::error::Error>> {
-        let file_name = file_path.file_name().ok_or("No filename provided")?;
+        let file_name = file_path.file_name().ok_or("No filename provided")?; // unsure how to get the value from this without ? or unwrap
         let file_contents = fs::read_to_string(file_path)?;
         Ok(Self::new(file_name, file_contents.as_str()))
     }
