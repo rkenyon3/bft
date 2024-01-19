@@ -41,7 +41,7 @@ impl<T> VirtualMachine<T> {
     /// Print out the intermediate representation of the program
     pub fn print_program(self, program: &BfProgram) {
         for instruction in program.instructions().iter() {
-            println!("{}", instruction)
+            println!("[{}] {}", program.name().to_string_lossy(), instruction)
         }
     }
 }
