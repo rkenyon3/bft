@@ -1,15 +1,16 @@
 //! Program to take a Brainfuck program at the specified file path and 'run' it
 
+mod cli;
+
 use bft_interp::VirtualMachine;
 use bft_types::BfProgram;
-use std::env;
-use std::path::PathBuf;
+use clap::Parser;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let file_path = PathBuf::from(env::args_os().nth(1).ok_or("Needs BF program file name")?);
+    let args = cli::Args::parse(); // TODO: this should really be seperated out better
 
-    let bf_program = BfProgram::from_file(file_path)?;
-    let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(None, false);
+    let bf_program = BfProgram::from_file(args.program)?;
+    let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(args.cells, args.extensible);
 
     bf_interpreter.print_program(&bf_program);
 
