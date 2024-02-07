@@ -30,8 +30,8 @@ where
         }
     }
 
-    /// Print out the intermediate representation of the program
-    pub fn print_program(self, program: &BfProgram) {
+    /// Interprets the program. For now, just prints out stuff
+    pub fn interpret_program(self, program: &BfProgram) {
         for instruction in program.instructions().iter() {
             println!("[{}] {}", program.name().display(), instruction)
         }

@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let bf_program = BfProgram::from_file(args.program)?;
     let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(args.cells, args.extensible);
 
-    bf_interpreter.print_program(&bf_program);
+    bf_interpreter.interpret_program(&bf_program);
 
     Ok(())
 }
