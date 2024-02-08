@@ -146,6 +146,7 @@ impl BfProgram {
         &self.instructions
     }
 
+    /// Analyse the program to ensure that it is syntactically valid
     pub fn analyse_program(&self) -> Result<(), String> {
         let mut bracket_count: usize = 0;
         // TODO: add functionality to store bracket locations here
