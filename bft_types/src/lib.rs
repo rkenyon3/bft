@@ -145,6 +145,26 @@ impl BfProgram {
     pub fn instructions(&self) -> &[LocalisedInstruction] {
         &self.instructions
     }
+
+    pub fn analyse_program(&self) -> Result<(), String> {
+        let mut bracket_count: usize = 0;
+        // TODO: add functionality to store bracket locations here
+        for program_instruction in self.instructions.iter() {
+            if program_instruction.instruction == Instruction::ConditionalJumpForward {
+                bracket_count += 1;
+            } else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
+                bracket_count -= 1;
+            }
+        }
+
+        if bracket_count == 0 {
+            Ok(())
+        } else {
+            Err(String::from(
+                "Program contains unbalanced conditional jumps ([])",
+            ))
+        }
+    }
 }
 
 #[cfg(test)]
