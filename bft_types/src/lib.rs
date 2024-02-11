@@ -111,7 +111,7 @@ impl BfProgram {
     ///  
     /// let bf_file = PathBuf::from("my_bf_program.bf");
     /// 
-    /// let my_bf_program = BfProgram::from_file(bf_file) ;
+    /// let my_bf_program = BfProgram::from_file(bf_file);
     /// ```
     pub fn from_file<P: AsRef<Path>>(file_path: P) -> std::io::Result<BfProgram> {
         let file_contents = fs::read_to_string(&file_path)?;
@@ -155,6 +155,21 @@ impl BfProgram {
     }
 
     /// Analyse the program to ensure that it is syntactically valid
+    /// 
+    /// ```no_run
+    /// use bft_types::BfProgram;
+    /// use std::path::PathBuf;
+    /// fn main() -> Result<(), Box<dyn std::error::Error>>{
+    ///  
+    /// let bf_file = PathBuf::from("my_bf_program.bf");
+    /// 
+    /// let my_bf_program = BfProgram::from_file(bf_file)?;
+    /// 
+    /// my_bf_program.analyse_program()?;
+    /// 
+    /// Ok(())
+    /// }
+    /// ```
     pub fn analyse_program(&self) -> Result<(), String> {
         let mut bracket_count: usize = 0;
         // TODO: add functionality to store bracket locations here
