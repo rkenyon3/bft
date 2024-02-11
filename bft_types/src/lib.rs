@@ -227,10 +227,24 @@ mod tests {
 
         let expected_instruction =
             LocalisedInstruction::new(placeholder_instruction_type.clone(), 0, 1);
-        assert_eq!(bf_program.instructions[0], expected_instruction);
+        assert_eq!(bf_program.instructions.get(0), Some(&expected_instruction));
 
         let expected_instruction =
             LocalisedInstruction::new(placeholder_instruction_type.clone(), 1, 2);
         assert_eq!(bf_program.instructions.get(1), Some(&expected_instruction));
+    }
+
+    /// check that analysing a valid program works
+    #[test]
+    fn test_analyse_good() {
+        let filename = Path::new("test_file.bf");
+        let lines = "_>>[<\n].,,[<\n]";
+
+        let bf_program = BfProgram::new(filename, lines);
+
+        let result = bf_program.analyse_program();
+        let expected = Ok(());
+
+        assert_eq!(result, expected);
     }
 }
