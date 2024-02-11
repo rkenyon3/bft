@@ -103,8 +103,16 @@ pub struct BfProgram {
 }
 
 impl BfProgram {
-    // TODO: check file_path typing
     /// Attempt to load a valid Brainfuck program from the specified file path
+    /// 
+    /// ```no_run
+    /// use bft_types::BfProgram;
+    /// use std::path::PathBuf;
+    ///  
+    /// let bf_file = PathBuf::from("my_bf_program.bf");
+    /// 
+    /// let my_bf_program = BfProgram::from_file(bf_file) ;
+    /// ```
     pub fn from_file<P: AsRef<Path>>(file_path: P) -> std::io::Result<BfProgram> {
         let file_contents = fs::read_to_string(&file_path)?;
         Ok(Self::new(file_path, file_contents.as_str()))
