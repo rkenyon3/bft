@@ -48,8 +48,8 @@ fn main() {
     let params = BftParams::new(args.program, args.cells, args.extensible);
 
     let run_result = run_bft(params);
-    match run_result{
+    match run_result {
         Ok(()) => println!("Done"),
-        Err(e) => println!("Error: {}", e)
+        Err(e) => println!("Error: {}", e),
     }
 }

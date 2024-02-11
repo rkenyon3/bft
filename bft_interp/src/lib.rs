@@ -20,18 +20,18 @@ where
     T: Clone + Default,
 {
     /// Create a new VirtualMachine. Defaults to 30000 cells of memory if tape_size is zero.
-    /// 
+    ///
     /// ```no_run
     /// fn main() -> Result<(), Box<dyn std::error::Error>>{
     /// use bft_types::BfProgram;
     /// use bft_interp::VirtualMachine;
     /// use std::num::NonZeroUsize;
-    /// 
+    ///
     /// let bf_program = BfProgram::from_file("my_bf_program.bf")?;
     ///
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
     /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(tape_size, true);
-    /// 
+    ///
     /// Ok(())
     /// }
     /// ```
@@ -58,5 +58,4 @@ mod tests {
     use super::*;
 
     // TODO: implement
-
 }
