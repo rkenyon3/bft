@@ -104,13 +104,13 @@ pub struct BfProgram {
 
 impl BfProgram {
     /// Attempt to load a valid Brainfuck program from the specified file path
-    /// 
+    ///
     /// ```no_run
     /// use bft_types::BfProgram;
     /// use std::path::PathBuf;
     ///  
     /// let bf_file = PathBuf::from("my_bf_program.bf");
-    /// 
+    ///
     /// let my_bf_program = BfProgram::from_file(bf_file);
     /// ```
     pub fn from_file<P: AsRef<Path>>(file_path: P) -> std::io::Result<BfProgram> {
@@ -155,18 +155,18 @@ impl BfProgram {
     }
 
     /// Analyse the program to ensure that it is syntactically valid
-    /// 
+    ///
     /// ```no_run
     /// use bft_types::BfProgram;
     /// use std::path::PathBuf;
     /// fn main() -> Result<(), Box<dyn std::error::Error>>{
     ///  
     /// let bf_file = PathBuf::from("my_bf_program.bf");
-    /// 
+    ///
     /// let my_bf_program = BfProgram::from_file(bf_file)?;
-    /// 
+    ///
     /// my_bf_program.analyse_program()?;
-    /// 
+    ///
     /// Ok(())
     /// }
     /// ```
