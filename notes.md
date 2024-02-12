@@ -35,4 +35,21 @@ this can also be written as in bft_interp lib.rs
 'pub trait MyThink: clone {
     fn make_fresh_copy(&self) -> Self{self.clone()}
 }'
-- read up on from and into
+- read up on from<> and into<>
+- can implement convert_from for any number of _non-overlapping_ types
+- string::chars is a good example
+- with impl in return type, this means that the caller only gets to know that the return type implements that trait
+- can be useful if you can't name a return type
+- in parameter list, impl in function args is short for where clause
+- produces monomorphisation
+- read about box dyn traits
+- what is an instruction cache?
+- look at standard library?
+- fn my_func(a: &impl Thing) {} tends to produce faster code
+- fn my_func(a: &dyn Thing) {} tends to produce smaller code
+
+- **read up on std::io::cursor**
+- read rust book chapter 10.2(?) traits
+- **practice this**
+- skim the advanced traits chapter
+- read and *really* understand 10.3 validating references with lifetimes
