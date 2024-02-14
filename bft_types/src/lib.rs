@@ -65,9 +65,9 @@ impl Display for Instruction {
 pub struct LocalisedInstruction {
     /// The type of operation this instruction represents
     instruction: Instruction,
-    /// The line number of the original file upon which this instruction appears
+    /// The line number of the original file upon which this instruction appears, 1-indexed human-readable
     line_num: usize,
-    /// The column number of the original file in which this instruction appears
+    /// The column number of the original file in which this instruction appears, 1-indexed human-readable
     column_num: usize,
 }
 
@@ -87,8 +87,8 @@ impl Display for LocalisedInstruction {
         write!(
             f,
             "{}:{}\t{}",
-            self.line_num + 1,
-            self.column_num + 1,
+            self.line_num,
+            self.column_num,
             self.instruction
         )
     }
@@ -96,18 +96,17 @@ impl Display for LocalisedInstruction {
 
 /// Representation of a Brainfuck program, including it's name and a vector of Instructions
 #[derive(Debug)]
-pub struct BfProgram <'a>{
+pub struct BfProgram{
     /// Name of the file containing the original program
     name: PathBuf,
     /// A vector of instructions. Not sure how else to describe it
     instructions: Vec<LocalisedInstruction>,
-    /// Hashmap of jump instructions and their counterparts
-    jump_map: HashMap<&'a LocalisedInstruction, &'a LocalisedInstruction>,
+    /// Hashmap to record the index of jumps in instructions, and the indexes of their counterparts
+    jump_map: HashMap<usize, usize>,
 }
 
-impl<'a> BfProgram <'a> {
+impl BfProgram{
     /// Attempt to load a valid Brainfuck program from the specified file path.
-    /// Need to check the lifetimes here.
     ///
     /// ```no_run
     /// use bft_types::BfProgram;
@@ -117,7 +116,7 @@ impl<'a> BfProgram <'a> {
     ///
     /// let my_bf_program = BfProgram::from_file(bf_file);
     /// ```
-    pub fn from_file<P: AsRef<Path>>(file_path: P) -> std::io::Result<BfProgram<'a>> { // TODO: review. Unsure about static
+    pub fn from_file<P: AsRef<Path>>(file_path: P) -> std::io::Result<BfProgram> {
         let file_contents = fs::read_to_string(&file_path)?;
         Ok(Self::new(file_path, file_contents.as_str()))
     }
@@ -125,7 +124,7 @@ impl<'a> BfProgram <'a> {
     /// Construct a new BfProgram from a &str
     fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Self {
         let mut instructions: Vec<LocalisedInstruction> = Vec::new();
-        let jump_map = HashMap::<& LocalisedInstruction,& LocalisedInstruction>::new();
+        let jump_map = HashMap::<usize, usize>::new();
 
         // TODO: see if this can be shortened
         for (line_number, file_line) in file_contents.lines().enumerate() {
@@ -135,8 +134,8 @@ impl<'a> BfProgram <'a> {
                     Some(instr) => {
                         instructions.push(LocalisedInstruction::new(
                             instr,
-                            line_number,
-                            col_number,
+                            line_number + 1,
+                            col_number + 1,
                         ));
                     }
                 }
@@ -169,30 +168,30 @@ impl<'a> BfProgram <'a> {
     ///  
     /// let bf_file = PathBuf::from("my_bf_program.bf");
     ///
-    /// let my_bf_program = BfProgram::from_file(bf_file)?;
+    /// let mut my_bf_program = BfProgram::from_file(bf_file)?;
     ///
     /// my_bf_program.analyse_program()?;
     ///
     /// Ok(())
     /// }
     /// ```
-    pub fn analyse_program(&'a mut self) -> Result<(), String> {
+    pub fn analyse_program(&mut self) -> Result<(), String> {
         
-        let mut jump_instructions = Vec::<&LocalisedInstruction>::new();
+        let mut jump_instructions = Vec::<(usize, &LocalisedInstruction)>::new();
         
-        for program_instruction in self.instructions.iter() {
-            // to begin with, store jump-forward instructuctions...
+        for (program_index, program_instruction) in self.instructions.iter().enumerate() {
+            // to begin with, store program_indexes and jump-forward instructuctions...
             if program_instruction.instruction == Instruction::ConditionalJumpForward {
-                jump_instructions.push(program_instruction);
+                jump_instructions.push((program_index, program_instruction));
 
             // ...and pop them back off their vector as we find their matches.
             // If we can't pop the corresponding [, we've got unmatched jumps
             } else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
-                let jump_counterpart_option: Option<&LocalisedInstruction> = jump_instructions.pop();
-                match jump_counterpart_option{
-                    Some(jump_counterpart) => {
-                        self.jump_map.insert(&program_instruction, &jump_counterpart);
-                        self.jump_map.insert(&jump_counterpart, &program_instruction);
+                match jump_instructions.pop(){
+                    Some(popped_jump) => {
+                        let counterpart_index = popped_jump.0;
+                        self.jump_map.insert(program_index, counterpart_index);
+                        self.jump_map.insert(counterpart_index, program_index);
                     },
                     None => {
                         return Err(
@@ -212,8 +211,8 @@ impl<'a> BfProgram <'a> {
                 Err(
                     format!(
                         "Unmatched bracket on line {}, col {}", 
-                        unmatched_jump.line_num, 
-                        unmatched_jump.column_num
+                        unmatched_jump.1.line_num, 
+                        unmatched_jump.1.column_num
                     )
                 )
             },
@@ -257,11 +256,11 @@ mod tests {
         assert_eq!(bf_program.name(), filename);
 
         let expected_instruction =
-            LocalisedInstruction::new(placeholder_instruction_type.clone(), 0, 1);
+            LocalisedInstruction::new(placeholder_instruction_type.clone(), 1, 2);
         assert_eq!(bf_program.instructions.get(0), Some(&expected_instruction));
 
         let expected_instruction =
-            LocalisedInstruction::new(placeholder_instruction_type.clone(), 1, 2);
+            LocalisedInstruction::new(placeholder_instruction_type.clone(), 2, 3);
         assert_eq!(bf_program.instructions.get(1), Some(&expected_instruction));
     }
 
@@ -271,7 +270,7 @@ mod tests {
         let filename = Path::new("test_file.bf");
         let lines = "_>>[<\n].,,[<\n]";
 
-        let bf_program = BfProgram::new(filename, lines);
+        let mut bf_program = BfProgram::new(filename, lines);
 
         let result = bf_program.analyse_program();
         let expected = Ok(());
