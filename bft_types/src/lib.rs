@@ -1,11 +1,12 @@
 //! Instruction types for the BF interpreter to use.
 
+use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Types of Brainfuck instructions
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub enum Instruction {
     /// Increment the data pointer by one (to point to the next cell to the right).
     MoveLeft,
@@ -60,7 +61,7 @@ impl Display for Instruction {
 }
 
 /// Representation of a Brainfuck instruction, including the instruction type, and the line number and column on which it appears
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub struct LocalisedInstruction {
     /// The type of operation this instruction represents
     instruction: Instruction,
@@ -95,15 +96,18 @@ impl Display for LocalisedInstruction {
 
 /// Representation of a Brainfuck program, including it's name and a vector of Instructions
 #[derive(Debug)]
-pub struct BfProgram {
+pub struct BfProgram <'a>{
     /// Name of the file containing the original program
     name: PathBuf,
-    /// A vector of instructions. Not sure how else to desribe it
+    /// A vector of instructions. Not sure how else to describe it
     instructions: Vec<LocalisedInstruction>,
+    /// Hashmap of jump instructions and their counterparts
+    jump_map: HashMap<&'a LocalisedInstruction, &'a LocalisedInstruction>,
 }
 
-impl BfProgram {
-    /// Attempt to load a valid Brainfuck program from the specified file path
+impl<'a> BfProgram <'a> {
+    /// Attempt to load a valid Brainfuck program from the specified file path.
+    /// Need to check the lifetimes here.
     ///
     /// ```no_run
     /// use bft_types::BfProgram;
@@ -113,7 +117,7 @@ impl BfProgram {
     ///
     /// let my_bf_program = BfProgram::from_file(bf_file);
     /// ```
-    pub fn from_file<P: AsRef<Path>>(file_path: P) -> std::io::Result<BfProgram> {
+    pub fn from_file<P: AsRef<Path>>(file_path: P) -> std::io::Result<BfProgram<'a>> { // TODO: review. Unsure about static
         let file_contents = fs::read_to_string(&file_path)?;
         Ok(Self::new(file_path, file_contents.as_str()))
     }
@@ -121,6 +125,7 @@ impl BfProgram {
     /// Construct a new BfProgram from a &str
     fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Self {
         let mut instructions: Vec<LocalisedInstruction> = Vec::new();
+        let jump_map = HashMap::<& LocalisedInstruction,& LocalisedInstruction>::new();
 
         // TODO: see if this can be shortened
         for (line_number, file_line) in file_contents.lines().enumerate() {
@@ -141,6 +146,7 @@ impl BfProgram {
         Self {
             name: filename.as_ref().to_path_buf(),
             instructions,
+            jump_map
         }
     }
 
@@ -170,23 +176,48 @@ impl BfProgram {
     /// Ok(())
     /// }
     /// ```
-    pub fn analyse_program(&self) -> Result<(), String> {
-        let mut bracket_count: usize = 0;
-        // TODO: add functionality to store bracket locations here
+    pub fn analyse_program(&'a mut self) -> Result<(), String> {
+        
+        let mut jump_instructions = Vec::<&LocalisedInstruction>::new();
+        
         for program_instruction in self.instructions.iter() {
+            // to begin with, store jump-forward instructuctions...
             if program_instruction.instruction == Instruction::ConditionalJumpForward {
-                bracket_count += 1;
+                jump_instructions.push(program_instruction);
+
+            // ...and pop them back off their vector as we find their matches.
+            // If we can't pop the corresponding [, we've got unmatched jumps
             } else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
-                bracket_count -= 1;
+                let jump_counterpart_option: Option<&LocalisedInstruction> = jump_instructions.pop();
+                match jump_counterpart_option{
+                    Some(jump_counterpart) => {
+                        self.jump_map.insert(&program_instruction, &jump_counterpart);
+                        self.jump_map.insert(&jump_counterpart, &program_instruction);
+                    },
+                    None => {
+                        return Err(
+                            format!(
+                                "Unmatched bracket on line {}, col {}", 
+                                program_instruction.line_num, 
+                                program_instruction.column_num
+                            )
+                        )
+                    }
+                }
             }
         }
 
-        if bracket_count == 0 {
-            Ok(())
-        } else {
-            Err(String::from(
-                "Program contains unbalanced conditional jumps ([])",
-            ))
+        match jump_instructions.pop(){
+            Some(unmatched_jump) => {
+                Err(
+                    format!(
+                        "Unmatched bracket on line {}, col {}", 
+                        unmatched_jump.line_num, 
+                        unmatched_jump.column_num
+                    )
+                )
+            },
+            None => Ok(())
         }
     }
 }
