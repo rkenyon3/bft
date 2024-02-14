@@ -87,16 +87,14 @@ impl Display for LocalisedInstruction {
         write!(
             f,
             "{}:{}\t{}",
-            self.line_num,
-            self.column_num,
-            self.instruction
+            self.line_num, self.column_num, self.instruction
         )
     }
 }
 
 /// Representation of a Brainfuck program, including it's name and a vector of Instructions
 #[derive(Debug)]
-pub struct BfProgram{
+pub struct BfProgram {
     /// Name of the file containing the original program
     name: PathBuf,
     /// A vector of instructions. Not sure how else to describe it
@@ -105,7 +103,7 @@ pub struct BfProgram{
     jump_map: HashMap<usize, usize>,
 }
 
-impl BfProgram{
+impl BfProgram {
     /// Attempt to load a valid Brainfuck program from the specified file path.
     ///
     /// ```no_run
@@ -145,7 +143,7 @@ impl BfProgram{
         Self {
             name: filename.as_ref().to_path_buf(),
             instructions,
-            jump_map
+            jump_map,
         }
     }
 
@@ -176,9 +174,8 @@ impl BfProgram{
     /// }
     /// ```
     pub fn analyse_program(&mut self) -> Result<(), String> {
-        
         let mut jump_instructions = Vec::<(usize, &LocalisedInstruction)>::new();
-        
+
         for (program_index, program_instruction) in self.instructions.iter().enumerate() {
             // to begin with, store program_indexes and jump-forward instructuctions...
             if program_instruction.instruction == Instruction::ConditionalJumpForward {
@@ -187,36 +184,28 @@ impl BfProgram{
             // ...and pop them back off their vector as we find their matches.
             // If we can't pop the corresponding [, we've got unmatched jumps
             } else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
-                match jump_instructions.pop(){
+                match jump_instructions.pop() {
                     Some(popped_jump) => {
                         let counterpart_index = popped_jump.0;
                         self.jump_map.insert(program_index, counterpart_index);
                         self.jump_map.insert(counterpart_index, program_index);
-                    },
+                    }
                     None => {
-                        return Err(
-                            format!(
-                                "Unmatched bracket on line {}, col {}", 
-                                program_instruction.line_num, 
-                                program_instruction.column_num
-                            )
-                        )
+                        return Err(format!(
+                            "Unmatched bracket on line {}, col {}",
+                            program_instruction.line_num, program_instruction.column_num
+                        ))
                     }
                 }
             }
         }
 
-        match jump_instructions.pop(){
-            Some(unmatched_jump) => {
-                Err(
-                    format!(
-                        "Unmatched bracket on line {}, col {}", 
-                        unmatched_jump.1.line_num, 
-                        unmatched_jump.1.column_num
-                    )
-                )
-            },
-            None => Ok(())
+        match jump_instructions.pop() {
+            Some(unmatched_jump) => Err(format!(
+                "Unmatched bracket on line {}, col {}",
+                unmatched_jump.1.line_num, unmatched_jump.1.column_num
+            )),
+            None => Ok(()),
         }
     }
 }
