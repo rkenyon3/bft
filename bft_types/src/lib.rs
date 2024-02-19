@@ -61,7 +61,7 @@ impl Display for Instruction {
 }
 
 /// Representation of a Brainfuck instruction, including the instruction type, and the line number and column on which it appears
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct LocalisedInstruction {
     /// The type of operation this instruction represents
     instruction: Instruction,
