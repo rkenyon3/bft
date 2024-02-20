@@ -53,3 +53,7 @@ this can also be written as in bft_interp lib.rs
 - **practice this**
 - skim the advanced traits chapter
 - read and *really* understand 10.3 validating references with lifetimes
+
+# TODO - Session-04 review
+- add more tests, including for unmatched '[' and ']'
+- reword docs to be more helpful and dry
