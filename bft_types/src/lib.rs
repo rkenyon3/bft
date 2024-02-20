@@ -280,7 +280,7 @@ mod tests {
         let mut bf_program = BfProgram::new(filename, lines);
 
         let result = bf_program.analyse_program();
-        let expected_good_response = Ok(());
+        let expected_good_response = Ok(()); // How do I make the expected result be Err(String)?
 
         assert_ne!(result, expected_good_response);
     }
