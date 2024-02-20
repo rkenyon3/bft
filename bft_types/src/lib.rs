@@ -80,6 +80,10 @@ impl LocalisedInstruction {
             column_num,
         }
     }
+
+    pub fn instruction(&self) -> Instruction{
+        self.instruction.clone()
+    }
 }
 
 impl Display for LocalisedInstruction {
@@ -273,15 +277,16 @@ mod tests {
 
     /// check that analysing a valid program works
     #[test]
-    fn test_analyse_bad() {
+    fn test_analyse_unmatched_open_square_bracket() {
         let filename = Path::new("test_file.bf");
-        let lines = "_>>[<\n].,,<\n]";
+        let lines = "_>>[<\n][[].,,<\n";
 
         let mut bf_program = BfProgram::new(filename, lines);
 
         let result = bf_program.analyse_program();
-        let expected_good_response = Ok(()); // How do I make the expected result be Err(String)?
+        // Note: error message text matches the test program specifically
+        let expected_response = Err(String::from("test_file.bf: Unmatched bracket on line 2, col 2"));
 
-        assert_ne!(result, expected_good_response);
+        assert_eq!(result, expected_response);
     }
 }

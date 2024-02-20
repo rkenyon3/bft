@@ -2,7 +2,7 @@
 
 mod cli;
 
-use std::{num::NonZeroUsize, path::PathBuf};
+use std::{num::NonZeroUsize, path::PathBuf, process::ExitCode};
 
 use bft_interp::VirtualMachine;
 use bft_types::BfProgram;
@@ -43,14 +43,20 @@ fn run_bft(params: BftParams) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn main() {
+fn main() -> std::process::ExitCode {
     let args = cli::Args::parse(); // TODO: this should really be seperated out better
 
     let params = BftParams::new(args.program, args.cells, args.extensible);
 
     let run_result = run_bft(params);
     match run_result {
-        Ok(()) => println!("Done"),
-        Err(e) => println!("Error: {}", e),
+        Ok(()) => {
+            println!("Done");
+            ExitCode::SUCCESS
+        },
+        Err(e) => {
+            println!("Error: {}", e);
+            ExitCode::FAILURE
+        }
     }
 }

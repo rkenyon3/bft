@@ -5,7 +5,7 @@
 
 use std::num::NonZeroUsize;
 
-use bft_types::{BfProgram, LocalisedInstruction};
+use bft_types::{BfProgram, Instruction, LocalisedInstruction};
 
 /// Represents a machine with a memory tape of cells. Accepts a type T for the tape
 #[derive(Debug)]
@@ -24,18 +24,18 @@ where
     /// Create a new VirtualMachine. Defaults to 30000 cells of memory if tape_size is zero.
     ///
     /// ```no_run
-    /// fn main() -> Result<(), Box<dyn std::error::Error>>{
-    /// use bft_types::BfProgram;
-    /// use bft_interp::VirtualMachine;
-    /// use std::num::NonZeroUsize;
-    ///
+    ///# fn main() -> Result<(), Box<dyn std::error::Error>>{
+    ///# use bft_types::BfProgram;
+    ///# use bft_interp::VirtualMachine;
+    ///# use std::num::NonZeroUsize;
+    ///#
     /// let bf_program = BfProgram::from_file("my_bf_program.bf")?;
     ///
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
     /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
-    ///
-    /// Ok(())
-    /// }
+    ///#
+    ///# Ok(())
+    ///# }
     /// ```
     pub fn new(
         program: &'a BfProgram,
@@ -54,7 +54,30 @@ where
     }
 
     /// Interpret the program
+    ///
+    /// ```no_run
+    ///# fn main() -> Result<(), Box<dyn std::error::Error>>{
+    ///# use bft_types::BfProgram;
+    ///# use bft_interp::VirtualMachine;
+    ///# use std::num::NonZeroUsize;
+    ///#
+    /// let bf_program = BfProgram::from_file("my_bf_program.bf")?;
+    ///
+    /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
+    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
+    /// bf_interpreter.interpret_program()?;
+    ///#
+    ///# Ok(())
+    ///# }
+    /// ```   
     pub fn interpret_program(&mut self) -> Result<(), VMError> {
+        for (_index, instruction) in self.program.instructions().iter().enumerate(){
+            match instruction.instruction(){
+                Instruction::MoveLeft => self.move_head_left()?,
+                Instruction::MoveRight => self.move_head_right()?,
+                _ => (),
+            };
+        }
         Ok(())
     }
 
@@ -90,10 +113,10 @@ where
 }
 
 pub enum VMError {
-    /// The head ran off the end of the tape
-    HeadOverrun(LocalisedInstruction),
     /// The head ran off the start of the tape
     HeadUnderrun(LocalisedInstruction),
+    /// The head ran off the end of the (non-auto-extending) tape
+    HeadOverrun(LocalisedInstruction),
 }
 
 #[cfg(test)]
@@ -101,10 +124,16 @@ mod tests {
     use super::*;
 
     // TODO: implement
-    // can probably use std::io::cursor here
+    // tests to implement
+    // create new VM explicit tape size
+    // create new VM None as tape size (check that tape defaults to 30,000)
+    // create VM, Move head left at 0, check error
+    // create VM, Move head left not at 0, check head moves appropriately
+    // create VM with tape of 1, non-extending. Move head right at 0, check error
+    // create VM, Move head right not at max, check head moves appropriately
 
-    #[fixture]
-    fn get_test_vm() -> VirtualMachine<char>{
-        let vm: VirtualMachine<char> = VirtualMachine::new()
+    #[test]
+    fn test_create_vm() {
+        
     }
 }
