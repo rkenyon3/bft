@@ -192,8 +192,8 @@ impl BfProgram {
                     }
                     None => {
                         return Err(format!(
-                            "Unmatched bracket on line {}, col {}",
-                            program_instruction.line_num, program_instruction.column_num
+                            "{}: Unmatched bracket on line {}, col {}",
+                            self.name.to_string_lossy(), program_instruction.line_num, program_instruction.column_num
                         ))
                     }
                 }
@@ -202,8 +202,8 @@ impl BfProgram {
 
         match jump_instructions.pop() {
             Some(unmatched_jump) => Err(format!(
-                "Unmatched bracket on line {}, col {}",
-                unmatched_jump.1.line_num, unmatched_jump.1.column_num
+                "{}: Unmatched bracket on line {}, col {}",
+                self.name.to_string_lossy(), unmatched_jump.1.line_num, unmatched_jump.1.column_num
             )),
             None => Ok(()),
         }
@@ -266,4 +266,20 @@ mod tests {
 
         assert_eq!(result, expected);
     }
+
+    /// check that analysing a valid program works
+    #[test]
+    fn test_analyse_bad() {
+        let filename = Path::new("test_file.bf");
+        let lines = "_>>[<\n].,,<\n]";
+
+        let mut bf_program = BfProgram::new(filename, lines);
+
+        let result = bf_program.analyse_program();
+        let expected_good_response = Ok(());
+
+        assert_ne!(result, expected_good_response);
+    }
+
+    
 }
