@@ -102,4 +102,9 @@ mod tests {
 
     // TODO: implement
     // can probably use std::io::cursor here
+
+    #[fixture]
+    fn get_test_vm() -> VirtualMachine<char>{
+        let vm: VirtualMachine<char> = VirtualMachine::new()
+    }
 }
