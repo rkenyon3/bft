@@ -193,7 +193,9 @@ impl BfProgram {
                     None => {
                         return Err(format!(
                             "{}: Unmatched bracket on line {}, col {}",
-                            self.name.to_string_lossy(), program_instruction.line_num, program_instruction.column_num
+                            self.name.to_string_lossy(),
+                            program_instruction.line_num,
+                            program_instruction.column_num
                         ))
                     }
                 }
@@ -203,7 +205,9 @@ impl BfProgram {
         match jump_instructions.pop() {
             Some(unmatched_jump) => Err(format!(
                 "{}: Unmatched bracket on line {}, col {}",
-                self.name.to_string_lossy(), unmatched_jump.1.line_num, unmatched_jump.1.column_num
+                self.name.to_string_lossy(),
+                unmatched_jump.1.line_num,
+                unmatched_jump.1.column_num
             )),
             None => Ok(()),
         }
@@ -280,6 +284,4 @@ mod tests {
 
         assert_ne!(result, expected_good_response);
     }
-
-    
 }
