@@ -3,7 +3,7 @@
 //! Creates a virtual machine with a memory tape of cells of type T, and can accept and (eventually)
 //! run a program
 
-use std::num::NonZeroUsize;
+use std::{error::Error, fmt::Display, num::NonZeroUsize};
 
 use bft_types::{BfProgram, Instruction, LocalisedInstruction};
 
@@ -64,7 +64,7 @@ where
     /// let bf_program = BfProgram::from_file("my_bf_program.bf")?;
     ///
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
-    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
+    /// let mut bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
     /// bf_interpreter.interpret_program()?;
     ///#
     ///# Ok(())
@@ -112,6 +112,7 @@ where
     }
 }
 
+#[derive(Debug)]
 pub enum VMError {
     /// The head ran off the start of the tape
     HeadUnderrun(LocalisedInstruction),
@@ -119,9 +120,39 @@ pub enum VMError {
     HeadOverrun(LocalisedInstruction),
 }
 
+impl Error for VMError{
+
+}
+
+impl Display for VMError{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self{
+            Self::HeadOverrun(program_instruction) => {
+                write!(
+                    f,
+                    "Head Overrun Error occured at line {} column {}",
+                    program_instruction.line_num(),program_instruction.column_num()
+            )
+
+            },
+            Self::HeadUnderrun(program_instruction) => {
+                write!(
+                    f,
+                    "Head Underrun Error occured at line {} column {}",
+                    program_instruction.line_num(),program_instruction.column_num()
+            )
+
+            },
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{fs::{remove_file, File}, io::Write};
+    use rstest::{fixture, rstest};
+
 
     // TODO: implement
     // tests to implement
@@ -132,8 +163,35 @@ mod tests {
     // create VM with tape of 1, non-extending. Move head right at 0, check error
     // create VM, Move head right not at max, check head moves appropriately
 
-    #[test]
-    fn test_create_vm() {
-        
+    fn create_test_file(file_name: &str){
+        // is unwrap okay in test code? If this function fails the test will fail anyway
+        let mut file = File::create(file_name).unwrap();
+        file.write_all(b"[test]+++.").unwrap();
+    }
+
+    #[fixture]
+    fn test_program()->BfProgram{
+        let test_file_name = "test.bf";
+        create_test_file(test_file_name);
+        BfProgram::from_file(test_file_name).unwrap()
+    }
+
+    #[rstest]
+    fn test_create_vm_explicit_params(test_program: BfProgram) {
+        let tape_size = Some(NonZeroUsize::new(10_000).unwrap());
+        let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_size, true);
+
+        assert_eq!(vm.cells.len(), 10_000);
+        assert_eq!(vm.head, 0);
+        assert_eq!(vm.tape_can_grow, true);
+    }
+
+    #[rstest]
+    fn test_create_vm_default_params(test_program: BfProgram) {
+        let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
+
+        assert_eq!(vm.cells.len(), 30_000);
+        assert_eq!(vm.head, 0);
+        assert_eq!(vm.tape_can_grow, true);
     }
 }

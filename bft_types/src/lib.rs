@@ -84,6 +84,14 @@ impl LocalisedInstruction {
     pub fn instruction(&self) -> Instruction{
         self.instruction.clone()
     }
+
+    pub fn line_num(&self) -> usize{
+        self.line_num.clone()
+    }
+
+    pub fn column_num(&self) -> usize{
+        self.column_num.clone()
+    }
 }
 
 impl Display for LocalisedInstruction {
