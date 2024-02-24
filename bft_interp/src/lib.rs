@@ -17,6 +17,14 @@ pub struct VirtualMachine<'a, T> {
     program: &'a BfProgram,
 }
 
+pub trait CellKind: Clone + Default{
+    /// Increment the contents of the cell, wrapping on overflow
+    fn wrapping_increment(&self) -> ();
+    /// Decrement the contents of the cell, wrapping on underflow
+    fn wrapping_Decrement(&self) -> ();
+
+}
+
 impl<'a, T> VirtualMachine<'a, T>
 where
     T: Clone + Default,
@@ -110,6 +118,7 @@ where
         Ok(())
     }
 }
+
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum VMError {
