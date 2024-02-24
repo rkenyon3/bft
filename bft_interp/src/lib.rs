@@ -147,16 +147,13 @@ impl Display for VMError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{
-        fs::File,
-        io::Write,
-    };
+    use std::{fs::File, io::Write};
     use tempfile::NamedTempFile;
 
     fn test_program() -> BfProgram {
         let mut test_file = NamedTempFile::new().unwrap();
         test_file.write_all(b"[test]+++.").unwrap();
-    
+
         BfProgram::from_file(test_file.path()).unwrap()
     }
 

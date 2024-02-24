@@ -86,11 +86,11 @@ impl LocalisedInstruction {
     }
 
     pub fn line_num(&self) -> usize {
-        self.line_num.clone()
+        self.line_num
     }
 
     pub fn column_num(&self) -> usize {
-        self.column_num.clone()
+        self.column_num
     }
 }
 
