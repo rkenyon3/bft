@@ -17,4 +17,3 @@ pub struct Args {
     #[arg(short, long)]
     pub extensible: bool,
 }
-

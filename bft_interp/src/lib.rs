@@ -71,8 +71,8 @@ where
     ///# }
     /// ```   
     pub fn interpret_program(&mut self) -> Result<(), VMError> {
-        for (_index, instruction) in self.program.instructions().iter().enumerate(){
-            match instruction.instruction(){
+        for instruction in self.program.instructions().iter() {
+            match instruction.instruction() {
                 Instruction::MoveLeft => self.move_head_left()?,
                 Instruction::MoveRight => self.move_head_right()?,
                 _ => (),
@@ -97,22 +97,21 @@ where
     /// with an auto-extending tape, 1000 more cells will be added. If not,
     /// the VM will be sad and will throw an error out.
     fn move_head_right(&mut self) -> Result<(), VMError> {
-        if self.head < self.cells.len() {
-            self.head += 1;
-            Ok(())
-        } else {
-            if self.tape_can_grow {
-                self.cells.reserve_exact(1000);
-                Ok(())
-            } else {
-                let bad_instruction = self.program.instructions()[self.program_counter].clone();
-                Err(VMError::HeadOverrun(bad_instruction))
-            }
+        if self.head == (self.cells.capacity() - 1) && self.tape_can_grow {
+            let extra_tape = vec![T::default(); 1000];
+            self.cells.extend(extra_tape);
         }
+
+        self.head += 1;
+        if self.head == self.cells.capacity() {
+            let bad_instruction = self.program.instructions()[self.program_counter].clone();
+            return Err(VMError::HeadOverrun(bad_instruction));
+        }
+        Ok(())
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum VMError {
     /// The head ran off the start of the tape
     HeadUnderrun(LocalisedInstruction),
@@ -120,29 +119,27 @@ pub enum VMError {
     HeadOverrun(LocalisedInstruction),
 }
 
-impl Error for VMError{
+impl Error for VMError {}
 
-}
-
-impl Display for VMError{
+impl Display for VMError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self{
+        match self {
             Self::HeadOverrun(program_instruction) => {
                 write!(
                     f,
                     "Head Overrun Error occured at line {} column {}",
-                    program_instruction.line_num(),program_instruction.column_num()
-            )
-
-            },
+                    program_instruction.line_num(),
+                    program_instruction.column_num()
+                )
+            }
             Self::HeadUnderrun(program_instruction) => {
                 write!(
                     f,
                     "Head Underrun Error occured at line {} column {}",
-                    program_instruction.line_num(),program_instruction.column_num()
-            )
-
-            },
+                    program_instruction.line_num(),
+                    program_instruction.column_num()
+                )
+            }
         }
     }
 }
@@ -150,42 +147,36 @@ impl Display for VMError{
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs::{remove_file, File}, io::Write};
     use rstest::{fixture, rstest};
+    use std::{
+        fs::{remove_file, File},
+        io::Write,
+    };
 
-
-    // TODO: implement
-    // tests to implement
-    // create new VM explicit tape size
-    // create new VM None as tape size (check that tape defaults to 30,000)
-    // create VM, Move head left at 0, check error
-    // create VM, Move head left not at 0, check head moves appropriately
-    // create VM with tape of 1, non-extending. Move head right at 0, check error
-    // create VM, Move head right not at max, check head moves appropriately
-
-    fn create_test_file(file_name: &str){
-        // is unwrap okay in test code? If this function fails the test will fail anyway
+    fn create_test_file(file_name: &str) {
         let mut file = File::create(file_name).unwrap();
         file.write_all(b"[test]+++.").unwrap();
     }
 
     #[fixture]
-    fn test_program()->BfProgram{
+    fn test_program() -> BfProgram {
         let test_file_name = "test.bf";
         create_test_file(test_file_name);
         BfProgram::from_file(test_file_name).unwrap()
     }
 
+    // Does creating a VM with all paameters explicitly specified work?
     #[rstest]
     fn test_create_vm_explicit_params(test_program: BfProgram) {
         let tape_size = Some(NonZeroUsize::new(10_000).unwrap());
         let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_size, true);
 
-        assert_eq!(vm.cells.len(), 10_000);
+        assert_eq!(vm.cells.capacity(), 10_000);
         assert_eq!(vm.head, 0);
         assert_eq!(vm.tape_can_grow, true);
     }
 
+    // Does creating a VM with a default tape size work?
     #[rstest]
     fn test_create_vm_default_params(test_program: BfProgram) {
         let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
@@ -193,5 +184,118 @@ mod tests {
         assert_eq!(vm.cells.len(), 30_000);
         assert_eq!(vm.head, 0);
         assert_eq!(vm.tape_can_grow, true);
+    }
+
+    // Does moving the head left with space on an extensible tape work?
+    #[rstest]
+    fn test_move_head_left_extensible_good(test_program: BfProgram) {
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
+        vm.head = 5;
+        assert!(vm.head == 5);
+
+        let result = vm.move_head_left();
+        let expected = Ok(());
+
+        assert_eq!(result, expected);
+        assert_eq!(vm.head, 4);
+    }
+
+    // Does moving the head left with space on an fixed tape work?
+    #[rstest]
+    fn test_move_head_left_fixed_good(test_program: BfProgram) {
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        vm.head = 5;
+        assert!(vm.head == 5);
+
+        let result = vm.move_head_left();
+        let expected = Ok(());
+
+        assert_eq!(result, expected);
+        assert_eq!(vm.head, 4);
+    }
+
+    // Does moving the head left at the start of an extensible tape error correctly?
+    #[rstest]
+    fn test_move_head_left_extensible_bad(test_program: BfProgram) {
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
+        assert!(vm.head == 0);
+
+        let result = vm.move_head_left();
+        let expected = Err(VMError::HeadUnderrun(
+            test_program.instructions()[0].clone(),
+        ));
+
+        assert_eq!(result, expected);
+    }
+
+    // Does moving the head left at the start of an fixed tape error correctly?
+    #[rstest]
+    fn test_move_head_left_fixed_bad(test_program: BfProgram) {
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        assert!(vm.head == 0);
+
+        let result = vm.move_head_left();
+        let expected = Err(VMError::HeadUnderrun(
+            test_program.instructions()[0].clone(),
+        ));
+
+        assert_eq!(result, expected);
+    }
+
+    // Does moving the head right on an extensible tape work when the head has space to move?
+    #[rstest]
+    fn test_move_head_right_extensible_good(test_program: BfProgram) {
+        let tape_len = Some(NonZeroUsize::new(1000).unwrap());
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, true);
+        assert!(vm.head == 0);
+
+        let result = vm.move_head_right();
+        let expected = Ok(());
+
+        assert_eq!(result, expected);
+        assert_eq!(vm.head, 1);
+    }
+
+    // Does moving the head right on an fixed tape work?
+    #[rstest]
+    fn test_move_head_right_fixed_good(test_program: BfProgram) {
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        assert!(vm.head == 0);
+
+        let result = vm.move_head_right();
+        let expected = Ok(());
+
+        assert_eq!(result, expected);
+        assert_eq!(vm.head, 1);
+    }
+
+    // DOes moving the head right at the end of a fixed tape error correctly?
+    #[rstest]
+    fn test_move_head_right_fixed_bad(test_program: BfProgram) {
+        let tape_len = Some(NonZeroUsize::new(1000).unwrap());
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, false);
+        vm.head = 999;
+
+        let result = vm.move_head_right();
+        let expected = Err(VMError::HeadOverrun(test_program.instructions()[0].clone()));
+
+        assert_eq!(result, expected);
+    }
+
+    // Does moving the head right at the end of an extensible tape make the tape grow?
+    #[rstest]
+    fn test_auto_tape_extension(test_program: BfProgram) {
+        let tape_len = Some(NonZeroUsize::new(1000).unwrap());
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, true);
+
+        vm.head = 999;
+        assert!(vm.head == 999);
+
+        let result = vm.move_head_right();
+        let expected = Ok(());
+
+        assert_eq!(result, expected);
+        assert_eq!(vm.head, 1000);
+        assert_eq!(vm.cells.capacity(), 2000)
     }
 }

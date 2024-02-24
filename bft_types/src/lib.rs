@@ -81,15 +81,15 @@ impl LocalisedInstruction {
         }
     }
 
-    pub fn instruction(&self) -> Instruction{
+    pub fn instruction(&self) -> Instruction {
         self.instruction.clone()
     }
 
-    pub fn line_num(&self) -> usize{
+    pub fn line_num(&self) -> usize {
         self.line_num.clone()
     }
 
-    pub fn column_num(&self) -> usize{
+    pub fn column_num(&self) -> usize {
         self.column_num.clone()
     }
 }
@@ -293,7 +293,9 @@ mod tests {
 
         let result = bf_program.analyse_program();
         // Note: error message text matches the test program specifically
-        let expected_response = Err(String::from("test_file.bf: Unmatched bracket on line 2, col 2"));
+        let expected_response = Err(String::from(
+            "test_file.bf: Unmatched bracket on line 2, col 2",
+        ));
 
         assert_eq!(result, expected_response);
     }
