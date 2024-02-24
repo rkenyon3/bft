@@ -147,27 +147,23 @@ impl Display for VMError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rstest::{fixture, rstest};
     use std::{
-        fs::{remove_file, File},
+        fs::File,
         io::Write,
     };
+    use tempfile::NamedTempFile;
 
-    fn create_test_file(file_name: &str) {
-        let mut file = File::create(file_name).unwrap();
-        file.write_all(b"[test]+++.").unwrap();
-    }
-
-    #[fixture]
     fn test_program() -> BfProgram {
-        let test_file_name = "test.bf";
-        create_test_file(test_file_name);
-        BfProgram::from_file(test_file_name).unwrap()
+        let mut test_file = NamedTempFile::new().unwrap();
+        test_file.write_all(b"[test]+++.").unwrap();
+    
+        BfProgram::from_file(test_file.path()).unwrap()
     }
 
     // Does creating a VM with all paameters explicitly specified work?
-    #[rstest]
-    fn test_create_vm_explicit_params(test_program: BfProgram) {
+    #[test]
+    fn test_create_vm_explicit_params() {
+        let test_program = test_program();
         let tape_size = Some(NonZeroUsize::new(10_000).unwrap());
         let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_size, true);
 
@@ -177,8 +173,9 @@ mod tests {
     }
 
     // Does creating a VM with a default tape size work?
-    #[rstest]
-    fn test_create_vm_default_params(test_program: BfProgram) {
+    #[test]
+    fn test_create_vm_default_params() {
+        let test_program = test_program();
         let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
 
         assert_eq!(vm.cells.len(), 30_000);
@@ -187,8 +184,9 @@ mod tests {
     }
 
     // Does moving the head left with space on an extensible tape work?
-    #[rstest]
-    fn test_move_head_left_extensible_good(test_program: BfProgram) {
+    #[test]
+    fn test_move_head_left_extensible_good() {
+        let test_program = test_program();
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
         vm.head = 5;
         assert!(vm.head == 5);
@@ -201,8 +199,9 @@ mod tests {
     }
 
     // Does moving the head left with space on an fixed tape work?
-    #[rstest]
-    fn test_move_head_left_fixed_good(test_program: BfProgram) {
+    #[test]
+    fn test_move_head_left_fixed_good() {
+        let test_program = test_program();
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
         vm.head = 5;
         assert!(vm.head == 5);
@@ -215,8 +214,9 @@ mod tests {
     }
 
     // Does moving the head left at the start of an extensible tape error correctly?
-    #[rstest]
-    fn test_move_head_left_extensible_bad(test_program: BfProgram) {
+    #[test]
+    fn test_move_head_left_extensible_bad() {
+        let test_program = test_program();
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
         assert!(vm.head == 0);
 
@@ -229,8 +229,9 @@ mod tests {
     }
 
     // Does moving the head left at the start of an fixed tape error correctly?
-    #[rstest]
-    fn test_move_head_left_fixed_bad(test_program: BfProgram) {
+    #[test]
+    fn test_move_head_left_fixed_bad() {
+        let test_program = test_program();
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
         assert!(vm.head == 0);
 
@@ -243,8 +244,9 @@ mod tests {
     }
 
     // Does moving the head right on an extensible tape work when the head has space to move?
-    #[rstest]
-    fn test_move_head_right_extensible_good(test_program: BfProgram) {
+    #[test]
+    fn test_move_head_right_extensible_good() {
+        let test_program = test_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, true);
         assert!(vm.head == 0);
@@ -257,8 +259,9 @@ mod tests {
     }
 
     // Does moving the head right on an fixed tape work?
-    #[rstest]
-    fn test_move_head_right_fixed_good(test_program: BfProgram) {
+    #[test]
+    fn test_move_head_right_fixed_good() {
+        let test_program = test_program();
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
         assert!(vm.head == 0);
 
@@ -270,8 +273,9 @@ mod tests {
     }
 
     // DOes moving the head right at the end of a fixed tape error correctly?
-    #[rstest]
-    fn test_move_head_right_fixed_bad(test_program: BfProgram) {
+    #[test]
+    fn test_move_head_right_fixed_bad() {
+        let test_program = test_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, false);
         vm.head = 999;
@@ -283,8 +287,9 @@ mod tests {
     }
 
     // Does moving the head right at the end of an extensible tape make the tape grow?
-    #[rstest]
-    fn test_auto_tape_extension(test_program: BfProgram) {
+    #[test]
+    fn test_auto_tape_extension() {
+        let test_program = test_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, true);
 
