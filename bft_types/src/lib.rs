@@ -164,7 +164,7 @@ impl BfProgram {
         &self.name
     }
 
-    /// Borrow(?) a copy of the instructions
+    /// Borrow a copy of the instructions
     pub fn instructions(&self) -> &[LocalisedInstruction] {
         &self.instructions
     }

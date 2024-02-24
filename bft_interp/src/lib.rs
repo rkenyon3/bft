@@ -9,23 +9,22 @@ use bft_types::{BfProgram, Instruction, LocalisedInstruction};
 
 /// Represents a machine with a memory tape of cells. Accepts a type T for the tape
 #[derive(Debug)]
-pub struct VirtualMachine<'a, T> {
+pub struct VirtualMachine<T> {
     cells: Vec<T>,
     head: usize,
     tape_can_grow: bool,
     program_counter: usize,
-    program: &'a BfProgram,
+    program: BfProgram,
 }
 
-pub trait CellKind: Clone + Default{
+pub trait CellKind: Clone + Default {
     /// Increment the contents of the cell, wrapping on overflow
     fn wrapping_increment(&self) -> ();
     /// Decrement the contents of the cell, wrapping on underflow
-    fn wrapping_Decrement(&self) -> ();
-
+    fn wrapping_decrement(&self) -> ();
 }
 
-impl<'a, T> VirtualMachine<'a, T>
+impl<T> VirtualMachine<T>
 where
     T: Clone + Default,
 {
@@ -45,11 +44,7 @@ where
     ///# Ok(())
     ///# }
     /// ```
-    pub fn new(
-        program: &'a BfProgram,
-        tape_size: Option<NonZeroUsize>,
-        tape_can_grow: bool,
-    ) -> Self {
+    pub fn new(program: BfProgram, tape_size: Option<NonZeroUsize>, tape_can_grow: bool) -> Self {
         let tape_size = tape_size.map(NonZeroUsize::get).unwrap_or(30_000);
 
         Self {
@@ -79,13 +74,14 @@ where
     ///# }
     /// ```   
     pub fn interpret_program(&mut self) -> Result<(), VMError> {
-        for instruction in self.program.instructions().iter() {
-            match instruction.instruction() {
+        while self.program_counter != self.program.instructions().len() {
+            match self.program.instructions()[self.program_counter].instruction() {
                 Instruction::MoveLeft => self.move_head_left()?,
                 Instruction::MoveRight => self.move_head_right()?,
                 _ => (),
             };
         }
+
         Ok(())
     }
 
@@ -118,7 +114,6 @@ where
         Ok(())
     }
 }
-
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum VMError {
@@ -171,7 +166,7 @@ mod tests {
     fn test_create_vm_explicit_params() {
         let test_program = test_program();
         let tape_size = Some(NonZeroUsize::new(10_000).unwrap());
-        let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_size, true);
+        let vm: VirtualMachine<u8> = VirtualMachine::new(test_program, tape_size, true);
 
         assert_eq!(vm.cells.capacity(), 10_000);
         assert_eq!(vm.head, 0);
@@ -182,7 +177,7 @@ mod tests {
     #[test]
     fn test_create_vm_default_params() {
         let test_program = test_program();
-        let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
+        let vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, true);
 
         assert_eq!(vm.cells.len(), 30_000);
         assert_eq!(vm.head, 0);
@@ -193,7 +188,7 @@ mod tests {
     #[test]
     fn test_move_head_left_extensible_good() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, true);
         vm.head = 5;
         assert!(vm.head == 5);
 
@@ -208,7 +203,7 @@ mod tests {
     #[test]
     fn test_move_head_left_fixed_good() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
         vm.head = 5;
         assert!(vm.head == 5);
 
@@ -223,13 +218,13 @@ mod tests {
     #[test]
     fn test_move_head_left_extensible_bad() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
+        let bad_instruction = test_program.instructions()[0].clone();
+
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, true);
         assert!(vm.head == 0);
 
         let result = vm.move_head_left();
-        let expected = Err(VMError::HeadUnderrun(
-            test_program.instructions()[0].clone(),
-        ));
+        let expected = Err(VMError::HeadUnderrun(bad_instruction));
 
         assert_eq!(result, expected);
     }
@@ -238,13 +233,13 @@ mod tests {
     #[test]
     fn test_move_head_left_fixed_bad() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let bad_instruction = test_program.instructions()[0].clone();
+
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
         assert!(vm.head == 0);
 
         let result = vm.move_head_left();
-        let expected = Err(VMError::HeadUnderrun(
-            test_program.instructions()[0].clone(),
-        ));
+        let expected = Err(VMError::HeadUnderrun(bad_instruction));
 
         assert_eq!(result, expected);
     }
@@ -254,7 +249,7 @@ mod tests {
     fn test_move_head_right_extensible_good() {
         let test_program = test_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, true);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, tape_len, true);
         assert!(vm.head == 0);
 
         let result = vm.move_head_right();
@@ -268,7 +263,7 @@ mod tests {
     #[test]
     fn test_move_head_right_fixed_good() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
         assert!(vm.head == 0);
 
         let result = vm.move_head_right();
@@ -282,12 +277,13 @@ mod tests {
     #[test]
     fn test_move_head_right_fixed_bad() {
         let test_program = test_program();
+        let bad_instruction = test_program.instructions()[0].clone();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, tape_len, false);
         vm.head = 999;
 
         let result = vm.move_head_right();
-        let expected = Err(VMError::HeadOverrun(test_program.instructions()[0].clone()));
+        let expected = Err(VMError::HeadOverrun(bad_instruction));
 
         assert_eq!(result, expected);
     }
@@ -297,7 +293,7 @@ mod tests {
     fn test_auto_tape_extension() {
         let test_program = test_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, true);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, tape_len, true);
 
         vm.head = 999;
         assert!(vm.head == 999);

@@ -32,13 +32,14 @@ impl BftParams {
 fn run_bft(params: BftParams) -> Result<(), Box<dyn std::error::Error>> {
     let mut bf_program = BfProgram::from_file(params.program_file)?;
 
+    bf_program.analyse_program()?;
+
     let _bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(
-        &bf_program,
+        bf_program,
         params.tape_cell_count,
         params.tape_is_extensible,
     );
 
-    bf_program.analyse_program()?;
 
     Ok(())
 }
