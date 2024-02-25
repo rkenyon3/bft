@@ -18,15 +18,15 @@ pub struct VirtualMachine<T> {
 }
 
 pub trait CellKind: Clone + Default {
-    /// Increment the contents of the cell, wrapping on overflow
-    fn wrapping_increment(&self) -> ();
-    /// Decrement the contents of the cell, wrapping on underflow
-    fn wrapping_decrement(&self) -> ();
+    /// Increment the given value, wrapping on overflow
+    fn wrapping_increment(&mut self);
+    /// Increment the given value, wrapping on underflow
+    fn wrapping_decrement(&mut self);
 }
 
 impl<T> VirtualMachine<T>
 where
-    T: Clone + Default,
+    T: Clone + Default + CellKind,
 {
     /// Create a new VirtualMachine. Defaults to 30000 cells of memory if tape_size is zero.
     ///
@@ -39,7 +39,7 @@ where
     /// let bf_program = BfProgram::from_file("my_bf_program.bf")?;
     ///
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
-    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
+    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(bf_program, tape_size, true);
     ///#
     ///# Ok(())
     ///# }
@@ -67,7 +67,7 @@ where
     /// let bf_program = BfProgram::from_file("my_bf_program.bf")?;
     ///
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
-    /// let mut bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
+    /// let mut bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(bf_program, tape_size, true);
     /// bf_interpreter.interpret_program()?;
     ///#
     ///# Ok(())
@@ -78,6 +78,8 @@ where
             match self.program.instructions()[self.program_counter].instruction() {
                 Instruction::MoveLeft => self.move_head_left()?,
                 Instruction::MoveRight => self.move_head_right()?,
+                Instruction::Increment => self.increment_cell(),
+                Instruction::Decrement => self.decrement_cell(),
                 _ => (),
             };
         }
@@ -112,6 +114,34 @@ where
             return Err(VMError::HeadOverrun(bad_instruction));
         }
         Ok(())
+    }
+
+    /// Perform a wrapping increment on the cell pointed at by the head
+    fn increment_cell(&mut self) {
+        self.cells[self.head].wrapping_increment();
+    }
+
+    /// Perform a wrapping decrement on the cell pointed at by the head
+    fn decrement_cell(&mut self) {
+        self.cells[self.head].wrapping_decrement();
+    }
+}
+
+impl CellKind for u8 {
+    fn wrapping_increment(&mut self) {
+        if *self == u8::MAX {
+            *self = u8::MIN;
+        } else {
+            *self += 1;
+        }
+    }
+
+    fn wrapping_decrement(&mut self) {
+        if *self == u8::MIN {
+            *self = u8::MAX;
+        } else {
+            *self -= 1;
+        }
     }
 }
 
@@ -151,7 +181,7 @@ impl Display for VMError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs::File, io::Write};
+    use std::io::Write;
     use tempfile::NamedTempFile;
 
     fn test_program() -> BfProgram {
@@ -304,5 +334,60 @@ mod tests {
         assert_eq!(result, expected);
         assert_eq!(vm.head, 1000);
         assert_eq!(vm.cells.capacity(), 2000)
+    }
+
+    // For u8, does incrementing without wrapping work?
+    #[test]
+    fn test_u8_increment_no_wrap() {
+        let test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+
+        assert_eq!(vm.head, 0);
+
+        vm.cells[0] = 10;
+        vm.increment_cell();
+
+        assert_eq!(vm.cells[0], 11);
+    }
+
+    // For u8, does incrementing wrap around the max value?
+    #[test]
+    fn test_u8_increment_wrap() {
+        let test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+
+        assert_eq!(vm.head, 0);
+
+        vm.cells[0] = u8::MAX;
+        vm.increment_cell();
+
+        assert_eq!(vm.cells[0], u8::MIN);
+    }
+    // For u8, does decrementing without wrapping work?
+    #[test]
+    fn test_u8_decrement_no_wrap() {
+        let test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+
+        assert_eq!(vm.head, 0);
+
+        vm.cells[0] = 10;
+        vm.decrement_cell();
+
+        assert_eq!(vm.cells[0], 9);
+    }
+
+    // For u8, does decrementing wrap around the min value?
+    #[test]
+    fn test_u8_decrement_wrap() {
+        let test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+
+        assert_eq!(vm.head, 0);
+
+        vm.cells[0] = u8::MIN;
+        vm.decrement_cell();
+
+        assert_eq!(vm.cells[0], u8::MAX);
     }
 }

@@ -40,7 +40,6 @@ fn run_bft(params: BftParams) -> Result<(), Box<dyn std::error::Error>> {
         params.tape_is_extensible,
     );
 
-
     Ok(())
 }
 
