@@ -22,6 +22,8 @@ pub trait CellKind: Clone + Default {
     fn wrapping_increment(&mut self);
     /// Increment the given value, wrapping on underflow
     fn wrapping_decrement(&mut self);
+    /// Sets the value of the cell
+    fn set_value(&mut self, value: u8);
 }
 
 impl<T> VirtualMachine<T>
@@ -142,6 +144,10 @@ impl CellKind for u8 {
         } else {
             *self -= 1;
         }
+    }
+
+    fn set_value(&mut self, value:u8) {
+        *self = value;
     }
 }
 
