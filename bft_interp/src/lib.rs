@@ -3,7 +3,7 @@
 //! Creates a virtual machine with a memory tape of cells of type T, and can accept and (eventually)
 //! run a program
 
-use std::{error::Error, fmt::Display, num::NonZeroUsize};
+use std::{error::Error, fmt::Display, num::NonZeroUsize, io::Read};
 
 use bft_types::{BfProgram, Instruction, LocalisedInstruction};
 
@@ -127,6 +127,14 @@ where
     fn decrement_cell(&mut self) {
         self.cells[self.head].wrapping_decrement();
     }
+
+    /// Read from stdin, accepting the first byte and discarding the rest
+    fn read_byte_to_cell(&mut self) -> Result<(), VMError> {
+        let mut buffer = [0,1];
+        match std::io::stdin().read(&mut buffer){
+            
+        }
+    }
 }
 
 impl CellKind for u8 {
@@ -157,6 +165,8 @@ pub enum VMError {
     HeadUnderrun(LocalisedInstruction),
     /// The head ran off the end of the (non-auto-extending) tape
     HeadOverrun(LocalisedInstruction),
+    /// Reading a byte from stdio went bloop
+    ReadError(LocalisedInstruction),
 }
 
 impl Error for VMError {}
@@ -171,7 +181,7 @@ impl Display for VMError {
                     program_instruction.line_num(),
                     program_instruction.column_num()
                 )
-            }
+            },
             Self::HeadUnderrun(program_instruction) => {
                 write!(
                     f,
@@ -179,7 +189,15 @@ impl Display for VMError {
                     program_instruction.line_num(),
                     program_instruction.column_num()
                 )
-            }
+            },
+            Self::HeadUnderrun(program_instruction) => {
+                write!(
+                    f,
+                    "Read Error occured at line {} column {}",
+                    program_instruction.line_num(),
+                    program_instruction.column_num()
+                )
+            },
         }
     }
 }
