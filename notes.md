@@ -57,3 +57,14 @@ this can also be written as in bft_interp lib.rs
 # TODO - Session-04 review
 - add more tests, including for unmatched '[' and ']'
 - reword docs to be more helpful and dry
+
+# Session 06
+marker traits
+- things with a sized marker trait have a known size at compile time
+- send and sync are indicators for whether an object can safely traverse threads
+- send objects can be moved safely to another thread
+- sync objects can be safely shared across threads
+- copy tells the compiler that the literal bits representing a value can be safely copied
+
+# TODO
+read up on drop, read, write, display and formatters, option, result, iterator
