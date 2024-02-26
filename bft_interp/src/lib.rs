@@ -3,7 +3,11 @@
 //! Creates a virtual machine with a memory tape of cells of type T, and can accept and (eventually)
 //! run a program
 
-use std::{error::Error, fmt::Display, num::NonZeroUsize, io::Read};
+use std::{
+    fmt::Display,
+    io::{Read, Write},
+    num::NonZeroUsize,
+};
 
 use bft_types::{BfProgram, Instruction, LocalisedInstruction};
 
@@ -24,6 +28,8 @@ pub trait CellKind: Clone + Default {
     fn wrapping_decrement(&mut self);
     /// Sets the value of the cell
     fn set_value(&mut self, value: u8);
+    /// Gets the value of the cell
+    fn get_value(&self) -> u8;
 }
 
 impl<T> VirtualMachine<T>
@@ -82,6 +88,8 @@ where
                 Instruction::MoveRight => self.move_head_right()?,
                 Instruction::Increment => self.increment_cell(),
                 Instruction::Decrement => self.decrement_cell(),
+                Instruction::Input => self.read_value(&mut std::io::stdin())?,
+                Instruction::Output => self.print_value(&mut std::io::stdout())?,
                 _ => (),
             };
         }
@@ -128,11 +136,32 @@ where
         self.cells[self.head].wrapping_decrement();
     }
 
-    /// Read from stdin, accepting the first byte and discarding the rest
-    fn read_byte_to_cell(&mut self) -> Result<(), VMError> {
-        let mut buffer = [0,1];
-        match std::io::stdin().read(&mut buffer){
-            
+    /// Read from source, accepting the first byte and discarding the rest
+    fn read_value(&mut self, source: &mut impl Read) -> Result<(), VMError> {
+        let mut buffer = [0, 0];
+        match source.read(&mut buffer) {
+            Ok(_) => {
+                self.cells[self.head].set_value(buffer[0]);
+                Ok(())
+            }
+            Err(error) => {
+                let bad_instruction = self.program.instructions()[self.program_counter].clone();
+                Err(VMError::from((bad_instruction, error)))
+            }
+        }
+    }
+
+    /// Print the value at head to the target output
+    fn print_value(&self, output: &mut impl Write) -> Result<(), VMError> {
+        let output_buf = [self.cells[self.head].get_value()];
+        match output.write(&output_buf){
+            Ok(_) => Ok(()),
+
+            Err(error) => {
+                let bad_instruction = self.program.instructions()[self.program_counter].clone();
+                Err(VMError::from((bad_instruction, error)))
+            }
+
         }
     }
 }
@@ -154,8 +183,12 @@ impl CellKind for u8 {
         }
     }
 
-    fn set_value(&mut self, value:u8) {
+    fn set_value(&mut self, value: u8) {
         *self = value;
+    }
+
+    fn get_value(&self) -> u8 {
+        *self
     }
 }
 
@@ -166,10 +199,12 @@ pub enum VMError {
     /// The head ran off the end of the (non-auto-extending) tape
     HeadOverrun(LocalisedInstruction),
     /// Reading a byte from stdio went bloop
-    ReadError(LocalisedInstruction),
+    ReadError(LocalisedInstruction, String),
+    /// Writing a byte from stdio went bloop
+    WriteError(LocalisedInstruction, String),
 }
 
-impl Error for VMError {}
+impl std::error::Error for VMError {}
 
 impl Display for VMError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -181,7 +216,7 @@ impl Display for VMError {
                     program_instruction.line_num(),
                     program_instruction.column_num()
                 )
-            },
+            }
             Self::HeadUnderrun(program_instruction) => {
                 write!(
                     f,
@@ -189,15 +224,37 @@ impl Display for VMError {
                     program_instruction.line_num(),
                     program_instruction.column_num()
                 )
-            },
-            Self::HeadUnderrun(program_instruction) => {
+            }
+            Self::ReadError(program_instruction, error) => {
                 write!(
                     f,
-                    "Read Error occured at line {} column {}",
+                    "Read Error occured at line {} column {}: {}",
                     program_instruction.line_num(),
-                    program_instruction.column_num()
+                    program_instruction.column_num(),
+                    error
                 )
-            },
+            }
+            Self::WriteError(program_instruction, error) => {
+                write!(
+                    f,
+                    "Write Error occured at line {} column {}: {}",
+                    program_instruction.line_num(),
+                    program_instruction.column_num(),
+                    error
+                )
+            }
+        }
+    }
+}
+
+impl From<(LocalisedInstruction, std::io::Error)> for VMError {
+    fn from(value: (LocalisedInstruction, std::io::Error)) -> Self {
+        let bad_instruction = value.0;
+        let error_msg = value.1.to_string();
+        if bad_instruction.instruction() == Instruction::Input {
+            VMError::ReadError(bad_instruction, error_msg)
+        } else {
+            VMError::WriteError(bad_instruction, error_msg)
         }
     }
 }
@@ -247,9 +304,8 @@ mod tests {
         assert!(vm.head == 5);
 
         let result = vm.move_head_left();
-        let expected = Ok(());
 
-        assert_eq!(result, expected);
+        assert!(result.is_ok());
         assert_eq!(vm.head, 4);
     }
 
@@ -262,9 +318,8 @@ mod tests {
         assert!(vm.head == 5);
 
         let result = vm.move_head_left();
-        let expected = Ok(());
 
-        assert_eq!(result, expected);
+        assert!(result.is_ok());
         assert_eq!(vm.head, 4);
     }
 
@@ -278,9 +333,10 @@ mod tests {
         assert!(vm.head == 0);
 
         let result = vm.move_head_left();
-        let expected = Err(VMError::HeadUnderrun(bad_instruction));
+        let expected_error: Result<(), VMError> = Err(VMError::HeadUnderrun(bad_instruction));
 
-        assert_eq!(result, expected);
+        assert!(result.is_err());
+        assert_eq!(result, expected_error);
     }
 
     // Does moving the head left at the start of an fixed tape error correctly?
@@ -293,9 +349,10 @@ mod tests {
         assert!(vm.head == 0);
 
         let result = vm.move_head_left();
-        let expected = Err(VMError::HeadUnderrun(bad_instruction));
+        let expected_error: Result<(), VMError> = Err(VMError::HeadUnderrun(bad_instruction));
 
-        assert_eq!(result, expected);
+        assert!(result.is_err());
+        assert_eq!(result, expected_error);
     }
 
     // Does moving the head right on an extensible tape work when the head has space to move?
@@ -307,9 +364,8 @@ mod tests {
         assert!(vm.head == 0);
 
         let result = vm.move_head_right();
-        let expected = Ok(());
 
-        assert_eq!(result, expected);
+        assert!(result.is_ok());
         assert_eq!(vm.head, 1);
     }
 
@@ -321,13 +377,12 @@ mod tests {
         assert!(vm.head == 0);
 
         let result = vm.move_head_right();
-        let expected = Ok(());
 
-        assert_eq!(result, expected);
+        assert!(result.is_ok());
         assert_eq!(vm.head, 1);
     }
 
-    // DOes moving the head right at the end of a fixed tape error correctly?
+    // Does moving the head right at the end of a fixed tape error correctly?
     #[test]
     fn test_move_head_right_fixed_bad() {
         let test_program = test_program();
@@ -337,9 +392,10 @@ mod tests {
         vm.head = 999;
 
         let result = vm.move_head_right();
-        let expected = Err(VMError::HeadOverrun(bad_instruction));
+        let expected_error: Result<(), VMError> = Err(VMError::HeadOverrun(bad_instruction));
 
-        assert_eq!(result, expected);
+        assert!(result.is_err());
+        assert_eq!(result, expected_error);
     }
 
     // Does moving the head right at the end of an extensible tape make the tape grow?
@@ -353,9 +409,8 @@ mod tests {
         assert!(vm.head == 999);
 
         let result = vm.move_head_right();
-        let expected = Ok(());
 
-        assert_eq!(result, expected);
+        assert!(result.is_ok());
         assert_eq!(vm.head, 1000);
         assert_eq!(vm.cells.capacity(), 2000)
     }
@@ -413,5 +468,59 @@ mod tests {
         vm.decrement_cell();
 
         assert_eq!(vm.cells[0], u8::MAX);
+    }
+
+    // does reading a byte into a cell work?
+    #[test]
+    fn test_read() {
+        let test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut cursor = std::io::Cursor::new(vec![1, 2, 3]);
+
+        assert_eq!(vm.head, 0);
+
+        let result = vm.read_value(&mut cursor);
+
+        assert!(result.is_ok());
+        assert_eq!(vm.cells[0], 1);
+    }
+
+    // does reading error correctly when it should?
+    #[test]
+    fn test_read_bad() {
+        let test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+
+        // How tf do I trigger an error here?
+        // TODO: implement
+        
+    }
+
+    // does reading a byte into a cell work?
+    #[test]
+    fn test_write() {
+        let test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut buf: Vec<u8> = vec![0; 10];
+        let mut cursor = std::io::Cursor::new(buf);
+
+        vm.cells[0] = 65;
+        assert_eq!(vm.head, 0);
+
+        let result = vm.print_value(&mut cursor);
+
+        assert!(result.is_ok());
+        assert_eq!(cursor.get_ref()[0], 65);
+    }
+
+    // does reading error correctly when it should?
+    #[test]
+    fn test_write_bad() {
+        let test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+
+        // How tf do I trigger an error here?
+        // TODO: implement
+        panic!();
     }
 }
