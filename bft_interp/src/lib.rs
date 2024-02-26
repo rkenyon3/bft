@@ -262,7 +262,7 @@ impl From<(LocalisedInstruction, std::io::Error)> for VMError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write;
+    use std::io::{ErrorKind, Write};
     use tempfile::NamedTempFile;
 
     fn test_program() -> BfProgram {
@@ -474,6 +474,30 @@ mod tests {
 
         // How tf do I trigger an error here?
         // TODO: implement
+        struct FailingReader{}
+        impl Read for FailingReader{
+            fn by_ref(&mut self) -> &mut Self
+                where
+                    Self: Sized, {
+                self
+            }
+
+            fn bytes(self) -> std::io::Bytes<Self>
+                where
+                    Self: Sized, {
+                self.bytes()
+            }
+
+            fn chain<R: Read>(self, next: R) -> std::io::Chain<Self, R>
+                where
+                    Self: Sized, {
+                self.chain(next)
+            }
+
+            fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+                Err(std::io::Error::from("message"))
+            }
+        }
         
     }
 
