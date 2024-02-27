@@ -136,10 +136,10 @@ where
         self.cells[self.head].wrapping_decrement();
     }
 
-    /// Read from source, accepting the first byte and discarding the rest
+    /// Read a single byte from [source] and write it to the cell at head
     fn read_value(&mut self, source: &mut impl Read) -> Result<(), VMError> {
-        let mut buffer = [0, 0];
-        match source.read(&mut buffer) {
+        let mut buffer = [0];
+        match source.read_exact(&mut buffer) {
             Ok(_) => {
                 self.cells[self.head].set_value(buffer[0]);
                 Ok(())
@@ -154,14 +154,13 @@ where
     /// Print the value at head to the target output
     fn print_value(&self, output: &mut impl Write) -> Result<(), VMError> {
         let output_buf = [self.cells[self.head].get_value()];
-        match output.write(&output_buf){
+        match output.write(&output_buf) {
             Ok(_) => Ok(()),
 
             Err(error) => {
                 let bad_instruction = self.program.instructions()[self.program_counter].clone();
                 Err(VMError::from((bad_instruction, error)))
             }
-
         }
     }
 }
@@ -267,7 +266,7 @@ mod tests {
 
     fn test_program() -> BfProgram {
         let mut test_file = NamedTempFile::new().unwrap();
-        test_file.write_all(b"[test]+++.").unwrap();
+        test_file.write_all(b",.[test]+++.").unwrap();
 
         BfProgram::from_file(test_file.path()).unwrap()
     }
@@ -326,7 +325,7 @@ mod tests {
         let bad_instruction = test_program.instructions()[0].clone();
 
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, true);
-        
+
         let result = vm.move_head_left();
         let expected_error: Result<(), VMError> = Err(VMError::HeadUnderrun(bad_instruction));
 
@@ -341,7 +340,7 @@ mod tests {
         let bad_instruction = test_program.instructions()[0].clone();
 
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
-        
+
         let result = vm.move_head_left();
         let expected_error: Result<(), VMError> = Err(VMError::HeadUnderrun(bad_instruction));
 
@@ -355,7 +354,7 @@ mod tests {
         let test_program = test_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, tape_len, true);
-        
+
         let result = vm.move_head_right();
 
         assert!(result.is_ok());
@@ -367,7 +366,7 @@ mod tests {
     fn test_move_head_right_fixed_good() {
         let test_program = test_program();
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
-        
+
         let result = vm.move_head_right();
 
         assert!(result.is_ok());
@@ -470,35 +469,77 @@ mod tests {
     #[test]
     fn test_read_bad() {
         let test_program = test_program();
+        let bad_instruction = test_program.instructions()[1].clone();
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
 
-        // How tf do I trigger an error here?
-        // TODO: implement
-        struct FailingReader{}
-        impl Read for FailingReader{
+        struct FailingReader {}
+        impl FailingReader {
+            fn new() -> Self {
+                Self {}
+            }
+        }
+        impl Read for FailingReader {
             fn by_ref(&mut self) -> &mut Self
-                where
-                    Self: Sized, {
-                self
+            where
+                Self: Sized,
+            {
+                panic!()
             }
 
             fn bytes(self) -> std::io::Bytes<Self>
-                where
-                    Self: Sized, {
-                self.bytes()
+            where
+                Self: Sized,
+            {
+                panic!()
             }
 
             fn chain<R: Read>(self, next: R) -> std::io::Chain<Self, R>
-                where
-                    Self: Sized, {
-                self.chain(next)
+            where
+                Self: Sized,
+            {
+                panic!();
             }
 
             fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-                Err(std::io::Error::from("message"))
+                Err(std::io::Error::new(ErrorKind::Other, "test error"))
+            }
+
+            fn read_exact(&mut self, buf: &mut [u8]) -> std::io::Result<()> {
+                Err(std::io::Error::new(ErrorKind::Other, "test error"))
+            }
+
+            fn read_to_end(&mut self, buf: &mut Vec<u8>) -> std::io::Result<usize> {
+                Err(std::io::Error::new(ErrorKind::Other, "test error"))
+            }
+
+            fn read_to_string(&mut self, buf: &mut String) -> std::io::Result<usize> {
+                Err(std::io::Error::new(ErrorKind::Other, "test error"))
+            }
+
+            fn read_vectored(
+                &mut self,
+                bufs: &mut [std::io::IoSliceMut<'_>],
+            ) -> std::io::Result<usize> {
+                Err(std::io::Error::new(ErrorKind::Other, "test error"))
+            }
+
+            fn take(self, limit: u64) -> std::io::Take<Self>
+            where
+                Self: Sized,
+            {
+                panic!();
             }
         }
-        
+
+        let mut failing_reader = FailingReader::new();
+        let result = vm.read_value(&mut failing_reader);
+        let expected = Err(VMError::ReadError(
+            bad_instruction,
+            String::from("other error"),
+        ));
+
+        assert!(result.is_err());
+        assert_eq!(result, expected);
     }
 
     // does reading a byte into a cell work?
@@ -525,6 +566,6 @@ mod tests {
 
         // How tf do I trigger an error here?
         // TODO: implement
-
+        panic!();
     }
 }
