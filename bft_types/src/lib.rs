@@ -46,14 +46,14 @@ impl Instruction {
 impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let description = match self {
-            Instruction::MoveLeft => "MoveLeft",
-            Instruction::MoveRight => "MoveRight",
-            Instruction::Increment => "Increment",
-            Instruction::Decrement => "Decrement",
-            Instruction::Input => "Input",
-            Instruction::Output => "Output",
-            Instruction::ConditionalJumpForward => "ConditionalJumpForward",
-            Instruction::ConditionalJumpBackward => "ConditionalJumpBackward",
+            Instruction::MoveLeft => "Move tape head left",
+            Instruction::MoveRight => "Move tape head right",
+            Instruction::Increment => "Increment the value in the cell under the head",
+            Instruction::Decrement => "Decrement the value in the cell under the head",
+            Instruction::Input => "Input a byte",
+            Instruction::Output => "Output a byte",
+            Instruction::ConditionalJumpForward => "Jump forward to the matching ] if the cell is zero",
+            Instruction::ConditionalJumpBackward => "Jump backwards to the matching [ if the cell is not zero",
         };
 
         write!(f, "{}", description)
@@ -98,7 +98,7 @@ impl Display for LocalisedInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "{}:{}\t{}",
+            "{}:{}  {}",
             self.line_num, self.column_num, self.instruction
         )
     }
