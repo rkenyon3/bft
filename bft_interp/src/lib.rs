@@ -13,12 +13,12 @@ use bft_types::{BfProgram, Instruction, LocalisedInstruction};
 
 /// Represents a machine with a memory tape of cells. Accepts a type T for the tape
 #[derive(Debug)]
-pub struct VirtualMachine<T> {
+pub struct VirtualMachine<'a, T> {
     cells: Vec<T>,
     head: usize,
     tape_can_grow: bool,
     program_counter: usize,
-    program: BfProgram,
+    program: &'a BfProgram,
 }
 
 /// Trait requirements for the [VirtualMachine] tape cells
@@ -33,9 +33,9 @@ pub trait CellKind: Clone + Default {
     fn get_value(&self) -> u8;
 }
 
-impl<T> VirtualMachine<T>
+impl<'a, T> VirtualMachine<'a, T>
 where
-    T: Clone + Default + CellKind,
+    T: CellKind,
 {
     /// Create a new VirtualMachine. Defaults to 30000 cells of memory if tape_size is zero.
     ///
@@ -48,12 +48,16 @@ where
     /// let bf_program = BfProgram::from_file("my_bf_program.bf")?;
     ///
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
-    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(bf_program, tape_size, true);
+    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
     ///#
     ///# Ok(())
     ///# }
     /// ```
-    pub fn new(program: BfProgram, tape_size: Option<NonZeroUsize>, tape_can_grow: bool) -> Self {
+    pub fn new(
+        program: &'a BfProgram,
+        tape_size: Option<NonZeroUsize>,
+        tape_can_grow: bool,
+    ) -> Self {
         let tape_size = tape_size.map(NonZeroUsize::get).unwrap_or(30_000);
 
         Self {
@@ -76,7 +80,7 @@ where
     /// let bf_program = BfProgram::from_file("my_bf_program.bf")?;
     ///
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
-    /// let mut bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(bf_program, tape_size, true);
+    /// let mut bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
     /// bf_interpreter.interpret_program()?;
     ///#
     ///# Ok(())
@@ -100,27 +104,30 @@ where
 
     /// Move the head one cell towards the left (start) of the tape
     fn move_head_left(&mut self) -> Result<(), VMError> {
-        if self.head > 0 {
-            self.head -= 1;
-            Ok(())
-        } else {
-            let bad_instruction = self.program.instructions()[self.program_counter].clone();
-            Err(VMError::HeadUnderrun(bad_instruction))
+        match self.head.checked_sub(1) {
+            Some(new_pos) => {
+                self.head = new_pos;
+                Ok(())
+            }
+            None => {
+                let bad_instruction = self.program.instructions()[self.program_counter].clone();
+                Err(VMError::HeadUnderrun(bad_instruction))
+            }
         }
     }
 
     /// Move the head one cell towards the right (end) of the tape.
     /// If the head is at the end of the tape and the VM has been instantiated
-    /// with an auto-extending tape, 1000 more cells will be added. If not,
-    /// the VM will be sad and will throw an error out.
+    /// with an auto-extending tape, more cells will be added. If not, the VM
+    /// will be sad and will throw an error out.
     fn move_head_right(&mut self) -> Result<(), VMError> {
-        if self.head == (self.cells.capacity() - 1) && self.tape_can_grow {
-            let extra_tape = vec![T::default(); 1000];
-            self.cells.extend(extra_tape);
+        if self.head == (self.cells.len() - 1) && self.tape_can_grow {
+            self.cells.reserve(1);
+            self.cells.resize(self.cells.capacity(), T::default());
         }
 
         self.head += 1;
-        if self.head == self.cells.capacity() {
+        if self.head == self.cells.len() {
             let bad_instruction = self.program.instructions()[self.program_counter].clone();
             return Err(VMError::HeadOverrun(bad_instruction));
         }
@@ -155,7 +162,7 @@ where
     /// Print the value at head to the target output
     fn print_value(&self, output: &mut impl Write) -> Result<(), VMError> {
         let output_buf = [self.cells[self.head].get_value()];
-        match output.write(&output_buf) {
+        match output.write_all(&output_buf) {
             Ok(_) => Ok(()),
 
             Err(error) => {
@@ -168,19 +175,11 @@ where
 
 impl CellKind for u8 {
     fn wrapping_increment(&mut self) {
-        if *self == u8::MAX {
-            *self = u8::MIN;
-        } else {
-            *self += 1;
-        }
+        *self = self.wrapping_add(1);
     }
 
     fn wrapping_decrement(&mut self) {
-        if *self == u8::MIN {
-            *self = u8::MAX;
-        } else {
-            *self -= 1;
-        }
+        *self = self.wrapping_sub(1);
     }
 
     fn set_value(&mut self, value: u8) {
@@ -278,7 +277,7 @@ mod tests {
     fn test_create_vm_explicit_params() {
         let test_program = test_program();
         let tape_size = Some(NonZeroUsize::new(10_000).unwrap());
-        let vm: VirtualMachine<u8> = VirtualMachine::new(test_program, tape_size, true);
+        let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_size, true);
 
         assert_eq!(vm.cells.capacity(), 10_000);
         assert_eq!(vm.head, 0);
@@ -289,7 +288,7 @@ mod tests {
     #[test]
     fn test_create_vm_default_params() {
         let test_program = test_program();
-        let vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, true);
+        let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
 
         assert_eq!(vm.cells.len(), 30_000);
     }
@@ -298,7 +297,7 @@ mod tests {
     #[test]
     fn test_move_head_left_extensible_good() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, true);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
         vm.head = 5;
 
         let result = vm.move_head_left();
@@ -311,7 +310,7 @@ mod tests {
     #[test]
     fn test_move_head_left_fixed_good() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
         vm.head = 5;
 
         let result = vm.move_head_left();
@@ -326,7 +325,7 @@ mod tests {
         let test_program = test_program();
         let bad_instruction = test_program.instructions()[0].clone();
 
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, true);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
 
         let result = vm.move_head_left();
         let expected_error: Result<(), VMError> = Err(VMError::HeadUnderrun(bad_instruction));
@@ -341,7 +340,7 @@ mod tests {
         let test_program = test_program();
         let bad_instruction = test_program.instructions()[0].clone();
 
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
 
         let result = vm.move_head_left();
         let expected_error: Result<(), VMError> = Err(VMError::HeadUnderrun(bad_instruction));
@@ -355,7 +354,7 @@ mod tests {
     fn test_move_head_right_extensible_good() {
         let test_program = test_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, tape_len, true);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, true);
 
         let result = vm.move_head_right();
 
@@ -367,7 +366,7 @@ mod tests {
     #[test]
     fn test_move_head_right_fixed_good() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
 
         let result = vm.move_head_right();
 
@@ -381,7 +380,7 @@ mod tests {
         let test_program = test_program();
         let bad_instruction = test_program.instructions()[0].clone();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, tape_len, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, false);
         vm.head = 999;
 
         let result = vm.move_head_right();
@@ -396,7 +395,7 @@ mod tests {
     fn test_auto_tape_extension() {
         let test_program = test_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, tape_len, true);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, true);
 
         vm.head = 999;
 
@@ -411,7 +410,7 @@ mod tests {
     #[test]
     fn test_u8_increment_no_wrap() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
 
         vm.cells[0] = 10;
         vm.increment_cell();
@@ -423,7 +422,7 @@ mod tests {
     #[test]
     fn test_u8_increment_wrap() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
 
         vm.cells[0] = u8::MAX;
         vm.increment_cell();
@@ -434,7 +433,7 @@ mod tests {
     #[test]
     fn test_u8_decrement_no_wrap() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
 
         vm.cells[0] = 10;
         vm.decrement_cell();
@@ -446,7 +445,7 @@ mod tests {
     #[test]
     fn test_u8_decrement_wrap() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
 
         vm.cells[0] = u8::MIN;
         vm.decrement_cell();
@@ -458,7 +457,7 @@ mod tests {
     #[test]
     fn test_read() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
         let mut cursor = std::io::Cursor::new(vec![1, 2, 3]);
 
         let result = vm.read_value(&mut cursor);
@@ -472,83 +471,19 @@ mod tests {
     fn test_read_bad() {
         let test_program = test_program();
         let bad_instruction = test_program.instructions()[1].clone();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut cursor = std::io::Cursor::new([0; 0]);
 
-        struct FailingReader {}
-        impl FailingReader {
-            fn new() -> Self {
-                Self {}
-            }
-        }
-        impl Read for FailingReader {
-            fn by_ref(&mut self) -> &mut Self
-            where
-                Self: Sized,
-            {
-                panic!()
-            }
-
-            fn bytes(self) -> std::io::Bytes<Self>
-            where
-                Self: Sized,
-            {
-                panic!()
-            }
-
-            fn chain<R: Read>(self, next: R) -> std::io::Chain<Self, R>
-            where
-                Self: Sized,
-            {
-                panic!();
-            }
-
-            fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-                Err(std::io::Error::new(ErrorKind::Other, "test error"))
-            }
-
-            fn read_exact(&mut self, buf: &mut [u8]) -> std::io::Result<()> {
-                Err(std::io::Error::new(ErrorKind::Other, "test error"))
-            }
-
-            fn read_to_end(&mut self, buf: &mut Vec<u8>) -> std::io::Result<usize> {
-                Err(std::io::Error::new(ErrorKind::Other, "test error"))
-            }
-
-            fn read_to_string(&mut self, buf: &mut String) -> std::io::Result<usize> {
-                Err(std::io::Error::new(ErrorKind::Other, "test error"))
-            }
-
-            fn read_vectored(
-                &mut self,
-                bufs: &mut [std::io::IoSliceMut<'_>],
-            ) -> std::io::Result<usize> {
-                Err(std::io::Error::new(ErrorKind::Other, "test error"))
-            }
-
-            fn take(self, limit: u64) -> std::io::Take<Self>
-            where
-                Self: Sized,
-            {
-                panic!();
-            }
-        }
-
-        let mut failing_reader = FailingReader::new();
-        let result = vm.read_value(&mut failing_reader);
-        let expected: Result<(), VMError> = Err(VMError::ReadError(
-            bad_instruction,
-            String::from("other error"),
-        ));
+        let result = vm.read_value(&mut cursor);
 
         assert!(result.is_err());
-        // assert_eq!(result, expected);  // why does this fail?
     }
 
     // does reading a byte into a cell work?
     #[test]
     fn test_write() {
         let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
         let mut buf: Vec<u8> = vec![0; 10];
         let mut cursor = std::io::Cursor::new(buf);
 
@@ -565,41 +500,11 @@ mod tests {
     fn test_write_bad() {
         let test_program = test_program();
         let bad_instruction = test_program.instructions()[0].clone();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut cursor = std::io::Cursor::new([0; 0]);
 
-        // How tf do I trigger an error here?
-        // TODO: implement
-        struct FailingWriter {}
+        let result = vm.print_value(&mut cursor);
 
-        impl FailingWriter {
-            pub fn new() -> Self {
-                Self {}
-            }
-        }
-        impl Write for FailingWriter {
-            fn by_ref(&mut self) -> &mut Self
-            where
-                Self: Sized,
-            {
-                panic!();
-            }
-            fn flush(&mut self) -> std::io::Result<()> {
-                panic!();
-            }
-            fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-                Err(std::io::Error::new(ErrorKind::Other, "test error"))
-            }
-            fn write_all(&mut self, mut buf: &[u8]) -> std::io::Result<()> {
-                panic!();
-            }
-            fn write_fmt(&mut self, fmt: std::fmt::Arguments<'_>) -> std::io::Result<()> {
-                panic!();
-            }
-            fn write_vectored(&mut self, bufs: &[std::io::IoSlice<'_>]) -> std::io::Result<usize> {
-                panic!();
-            }
-        }
-
-        let failing_writer = FailingWriter::new();
+        assert!(result.is_err());
     }
 }
