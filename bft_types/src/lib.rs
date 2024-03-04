@@ -89,15 +89,17 @@ pub struct LocalisedInstruction {
 impl LocalisedInstruction {
     /// Construct a new Instruction with a parsed instruction type
     /// ```
-    ///# use bft_types;
+    ///# fn main() -> Result<(), Box<dyn std::error::Error>>{
+    ///#    use bft_types;
+    ///     let my_instruction = bft_types::Instruction::from_char('>').unwrap();
+    ///     let line_number = 3;
+    ///     let column_number = 7;
     ///
-    /// let my_instruction = bft_types::Instruction::from_char(">");
-    /// let line_number = 3;
-    /// let column_number = 7;
-    ///
-    /// let my_localised_instruction = bft_types::LocalisedInstruction::new(
-    ///     my_instruction, line-number, column_number
-    /// );
+    ///     let my_localised_instruction = bft_types::LocalisedInstruction::new(
+    ///         my_instruction, line_number, column_number
+    ///     );
+    ///#    Ok(())
+    ///# }
     /// ```
     pub fn new(instruction: Instruction, line_num: usize, column_num: usize) -> Self {
         Self {
@@ -145,12 +147,12 @@ impl BfProgram {
     /// Attempt to load a valid Brainfuck program from the specified file path.
     ///
     /// ```no_run
-    /// use bft_types::BfProgram;
-    /// use std::path::PathBuf;
-    ///  
-    /// let bf_file = PathBuf::from("my_bf_program.bf");
+    ///# use bft_types::BfProgram;
+    ///# use std::path::PathBuf;
+    ///#  
+    ///  let bf_file = PathBuf::from("my_bf_program.bf");
     ///
-    /// let my_bf_program = BfProgram::from_file(bf_file);
+    ///  let my_bf_program = BfProgram::from_file(bf_file);
     /// ```
     pub fn from_file<P: AsRef<Path>>(file_path: P) -> std::io::Result<BfProgram> {
         let file_contents = fs::read_to_string(&file_path)?;
@@ -198,18 +200,18 @@ impl BfProgram {
     /// Analyse the program to ensure that it is syntactically valid
     ///
     /// ```no_run
-    /// use bft_types::BfProgram;
-    /// use std::path::PathBuf;
-    /// fn main() -> Result<(), Box<dyn std::error::Error>>{
-    ///  
-    /// let bf_file = PathBuf::from("my_bf_program.bf");
+    ///# use bft_types::BfProgram;
+    ///# use std::path::PathBuf;
+    ///# fn main() -> Result<(), Box<dyn std::error::Error>>{
+    ///#   
+    ///  let bf_file = PathBuf::from("my_bf_program.bf");
     ///
-    /// let mut my_bf_program = BfProgram::from_file(bf_file)?;
+    ///  let mut my_bf_program = BfProgram::from_file(bf_file)?;
     ///
-    /// my_bf_program.analyse_program()?;
+    ///  my_bf_program.analyse_program()?;
     ///
-    /// Ok(())
-    /// }
+    ///# Ok(())
+    ///# }
     /// ```
     pub fn analyse_program(&mut self) -> Result<(), String> {
         let mut jump_instructions = Vec::<(usize, &LocalisedInstruction)>::new();

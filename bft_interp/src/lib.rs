@@ -1,7 +1,7 @@
 //! Brainfuck program interpreter
 //!
-//! Creates a virtual machine with a memory tape of cells of type T, and can accept and (eventually)
-//! run a program
+//! Creates a [VirtualMachine] using parameters specified on the command line, and runs the
+//! [BfProgram] it was given.
 
 use std::{
     fmt::Display,
@@ -21,6 +21,7 @@ pub struct VirtualMachine<T> {
     program: BfProgram,
 }
 
+/// Trait requirements for the [VirtualMachine] tape cells
 pub trait CellKind: Clone + Default {
     /// Increment the given value, wrapping on overflow
     fn wrapping_increment(&mut self);
@@ -191,6 +192,7 @@ impl CellKind for u8 {
     }
 }
 
+/// Error types that the [VirtualMachine] can emit
 #[derive(Debug, PartialEq, Eq)]
 pub enum VMError {
     /// The head ran off the start of the tape
