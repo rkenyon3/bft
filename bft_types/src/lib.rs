@@ -8,9 +8,9 @@ use std::path::{Path, PathBuf};
 /// Types of Brainfuck instructions
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub enum Instruction {
-    /// Increment the data pointer by one (to point to the next cell to the right).
+    /// Increment the data pointer by one (to point to the next cell to the left).
     MoveLeft,
-    /// Decrement the data pointer by one (to point to the next cell to the left).
+    /// Decrement the data pointer by one (to point to the next cell to the right).
     MoveRight,
     /// Increment the byte at the data pointer by one.
     Increment,
@@ -20,14 +20,24 @@ pub enum Instruction {
     Input,
     /// Output the byte at the data pointer.
     Output,
-    /// If the byte at the data pointer is zero, then instead of moving the instruction pointer forward to the next command, jump it forward to the command after the matching ] command.
+    /// If the byte at the data pointer is zero, then instead of moving the instruction pointer
+    /// forward to the next command, jump it forward to the command after the matching ] command.
     ConditionalJumpForward,
-    /// If the byte at the data pointer is nonzero, then instead of moving the instruction pointer forward to the next command, jump it back to the command after the matching [ command.
+    /// If the byte at the data pointer is nonzero, then instead of moving the instruction pointer
+    /// forward to the next command, jump it back to the command after the matching [ command.
     ConditionalJumpBackward,
 }
 
 impl Instruction {
-    /// Parse a single char. If the character represents an instruction, return the corresponding type.
+    /// Parse a single char. If the character represents an instruction, return the corresponding
+    /// type.
+    ///
+    /// ```
+    ///# use bft_types::Instruction;
+    ///  let c: char = '+';
+    ///
+    ///  let my_instruction = Instruction::from_char(c);
+    /// ```
     pub fn from_char(c: char) -> Option<Instruction> {
         match c {
             '<' => Some(Instruction::MoveLeft),
@@ -52,15 +62,20 @@ impl Display for Instruction {
             Instruction::Decrement => "Decrement the value in the cell under the head",
             Instruction::Input => "Input a byte",
             Instruction::Output => "Output a byte",
-            Instruction::ConditionalJumpForward => "Jump forward to the matching ] if the cell is zero",
-            Instruction::ConditionalJumpBackward => "Jump backwards to the matching [ if the cell is not zero",
+            Instruction::ConditionalJumpForward => {
+                "Jump forward to the matching ] if the cell is zero"
+            }
+            Instruction::ConditionalJumpBackward => {
+                "Jump backwards to the matching [ if the cell is not zero"
+            }
         };
 
         write!(f, "{}", description)
     }
 }
 
-/// Representation of a Brainfuck instruction, including the instruction type, and the line number and column on which it appears
+/// A single program [Instruction] with the line and column number it originally appeared on. Line
+/// and column numbers are 1-indexed
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct LocalisedInstruction {
     /// The type of operation this instruction represents
@@ -73,6 +88,17 @@ pub struct LocalisedInstruction {
 
 impl LocalisedInstruction {
     /// Construct a new Instruction with a parsed instruction type
+    /// ```
+    ///# use bft_types;
+    ///
+    /// let my_instruction = bft_types::Instruction::from_char(">");
+    /// let line_number = 3;
+    /// let column_number = 7;
+    ///
+    /// let my_localised_instruction = bft_types::LocalisedInstruction::new(
+    ///     my_instruction, line-number, column_number
+    /// );
+    /// ```
     pub fn new(instruction: Instruction, line_num: usize, column_num: usize) -> Self {
         Self {
             instruction,
