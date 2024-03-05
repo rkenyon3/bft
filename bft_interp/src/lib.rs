@@ -45,28 +45,31 @@ where
     ///# use bft_interp::VirtualMachine;
     ///# use std::num::NonZeroUsize;
     ///#
-    /// let bf_program = BfProgram::from_file("my_bf_program.bf")?;
+    /// let mut bf_program = BfProgram::from_file("my_bf_program.bf")?;
     ///
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
-    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
+    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&mut bf_program, tape_size, true)?;
     ///#
     ///# Ok(())
     ///# }
     /// ```
     pub fn new(
-        program: &'a BfProgram,
+        program: &'a mut BfProgram,
         tape_size: Option<NonZeroUsize>,
         tape_can_grow: bool,
-    ) -> Self {
+    ) -> Result<Self, String> {
         let tape_size = tape_size.map(NonZeroUsize::get).unwrap_or(30_000);
+        
+        // enforce analysing the program, since we need the jump map
+        program.analyse_program()?;
 
-        Self {
+        Ok(Self {
             cells: vec![T::default(); tape_size],
             head: 0,
             tape_can_grow,
             program,
             program_counter: 0,
-        }
+        })
     }
 
     /// Interpret the program
@@ -77,10 +80,10 @@ where
     ///# use bft_interp::VirtualMachine;
     ///# use std::num::NonZeroUsize;
     ///#
-    /// let bf_program = BfProgram::from_file("my_bf_program.bf")?;
+    /// let mut bf_program = BfProgram::from_file("my_bf_program.bf")?;
     ///
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
-    /// let mut bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
+    /// let mut bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&mut bf_program, tape_size, true)?;
     /// bf_interpreter.interpret_program()?;
     ///#
     ///# Ok(())
@@ -104,16 +107,15 @@ where
 
     /// Move the head one cell towards the left (start) of the tape
     fn move_head_left(&mut self) -> Result<(), VMError> {
-        match self.head.checked_sub(1) {
+        match self.head.checked_sub(1){
             Some(new_pos) => {
                 self.head = new_pos;
                 Ok(())
             }
-            None => {
-                let bad_instruction = self.program.instructions()[self.program_counter].clone();
-                Err(VMError::HeadUnderrun(bad_instruction))
-            }
-        }
+            None =>{
+            let bad_instruction = self.program.instructions()[self.program_counter].clone();
+            Err(VMError::HeadUnderrun(bad_instruction))
+        }}
     }
 
     /// Move the head one cell towards the right (end) of the tape.
@@ -275,9 +277,9 @@ mod tests {
     // Does creating a VM with all paameters explicitly specified work?
     #[test]
     fn test_create_vm_explicit_params() {
-        let test_program = test_program();
+        let mut test_program = test_program();
         let tape_size = Some(NonZeroUsize::new(10_000).unwrap());
-        let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_size, true);
+        let vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, tape_size, true).unwrap();
 
         assert_eq!(vm.cells.capacity(), 10_000);
         assert_eq!(vm.head, 0);
@@ -287,8 +289,8 @@ mod tests {
     // Does creating a VM with a default tape size work?
     #[test]
     fn test_create_vm_default_params() {
-        let test_program = test_program();
-        let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
+        let mut test_program = test_program();
+        let vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, true).unwrap();
 
         assert_eq!(vm.cells.len(), 30_000);
     }
@@ -296,8 +298,8 @@ mod tests {
     // Does moving the head left with space on an extensible tape work?
     #[test]
     fn test_move_head_left_extensible_good() {
-        let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
+        let mut test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, true).unwrap();
         vm.head = 5;
 
         let result = vm.move_head_left();
@@ -309,8 +311,8 @@ mod tests {
     // Does moving the head left with space on an fixed tape work?
     #[test]
     fn test_move_head_left_fixed_good() {
-        let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
         vm.head = 5;
 
         let result = vm.move_head_left();
@@ -322,10 +324,10 @@ mod tests {
     // Does moving the head left at the start of an extensible tape error correctly?
     #[test]
     fn test_move_head_left_extensible_bad() {
-        let test_program = test_program();
+        let mut test_program = test_program();
         let bad_instruction = test_program.instructions()[0].clone();
 
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, true).unwrap();
 
         let result = vm.move_head_left();
         let expected_error: Result<(), VMError> = Err(VMError::HeadUnderrun(bad_instruction));
@@ -337,10 +339,10 @@ mod tests {
     // Does moving the head left at the start of an fixed tape error correctly?
     #[test]
     fn test_move_head_left_fixed_bad() {
-        let test_program = test_program();
+        let mut test_program = test_program();
         let bad_instruction = test_program.instructions()[0].clone();
 
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
 
         let result = vm.move_head_left();
         let expected_error: Result<(), VMError> = Err(VMError::HeadUnderrun(bad_instruction));
@@ -352,9 +354,9 @@ mod tests {
     // Does moving the head right on an extensible tape work when the head has space to move?
     #[test]
     fn test_move_head_right_extensible_good() {
-        let test_program = test_program();
+        let mut test_program = test_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, true);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, tape_len, true).unwrap();
 
         let result = vm.move_head_right();
 
@@ -365,8 +367,8 @@ mod tests {
     // Does moving the head right on an fixed tape work?
     #[test]
     fn test_move_head_right_fixed_good() {
-        let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
 
         let result = vm.move_head_right();
 
@@ -377,10 +379,10 @@ mod tests {
     // Does moving the head right at the end of a fixed tape error correctly?
     #[test]
     fn test_move_head_right_fixed_bad() {
-        let test_program = test_program();
+        let mut test_program = test_program();
         let bad_instruction = test_program.instructions()[0].clone();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, false);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, tape_len, false).unwrap();
         vm.head = 999;
 
         let result = vm.move_head_right();
@@ -393,9 +395,9 @@ mod tests {
     // Does moving the head right at the end of an extensible tape make the tape grow?
     #[test]
     fn test_auto_tape_extension() {
-        let test_program = test_program();
+        let mut test_program = test_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, tape_len, true);
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, tape_len, true).unwrap();
 
         vm.head = 999;
 
@@ -409,8 +411,8 @@ mod tests {
     // For u8, does incrementing without wrapping work?
     #[test]
     fn test_u8_increment_no_wrap() {
-        let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
 
         vm.cells[0] = 10;
         vm.increment_cell();
@@ -421,8 +423,8 @@ mod tests {
     // For u8, does incrementing wrap around the max value?
     #[test]
     fn test_u8_increment_wrap() {
-        let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
 
         vm.cells[0] = u8::MAX;
         vm.increment_cell();
@@ -432,8 +434,8 @@ mod tests {
     // For u8, does decrementing without wrapping work?
     #[test]
     fn test_u8_decrement_no_wrap() {
-        let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
 
         vm.cells[0] = 10;
         vm.decrement_cell();
@@ -444,8 +446,8 @@ mod tests {
     // For u8, does decrementing wrap around the min value?
     #[test]
     fn test_u8_decrement_wrap() {
-        let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
 
         vm.cells[0] = u8::MIN;
         vm.decrement_cell();
@@ -456,8 +458,8 @@ mod tests {
     // does reading a byte into a cell work?
     #[test]
     fn test_read() {
-        let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
         let mut cursor = std::io::Cursor::new(vec![1, 2, 3]);
 
         let result = vm.read_value(&mut cursor);
@@ -469,10 +471,9 @@ mod tests {
     // does reading error correctly when it should?
     #[test]
     fn test_read_bad() {
-        let test_program = test_program();
-        let bad_instruction = test_program.instructions()[1].clone();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
-        let mut cursor = std::io::Cursor::new([0; 0]);
+        let mut test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let mut cursor = std::io::Cursor::new([0;0]);
 
         let result = vm.read_value(&mut cursor);
 
@@ -482,8 +483,8 @@ mod tests {
     // does reading a byte into a cell work?
     #[test]
     fn test_write() {
-        let test_program = test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
+        let mut test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
         let mut buf: Vec<u8> = vec![0; 10];
         let mut cursor = std::io::Cursor::new(buf);
 
@@ -498,13 +499,13 @@ mod tests {
     // does reading error correctly when it should?
     #[test]
     fn test_write_bad() {
-        let test_program = test_program();
-        let bad_instruction = test_program.instructions()[0].clone();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
-        let mut cursor = std::io::Cursor::new([0; 0]);
+        let mut test_program = test_program();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let mut cursor = std::io::Cursor::new([0;0]);
 
         let result = vm.print_value(&mut cursor);
 
         assert!(result.is_err());
+        
     }
 }
