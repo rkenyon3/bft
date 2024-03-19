@@ -133,14 +133,14 @@ impl Display for LocalisedInstruction {
 }
 
 /// Representation of a Brainfuck program, including it's name and a vector of Instructions
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct BfProgram {
     /// Name of the file containing the original program
     name: PathBuf,
     /// A vector of instructions. Not sure how else to describe it
     instructions: Vec<LocalisedInstruction>,
-    /// Hashmap to record the index of jumps in instructions, and the indexes of their counterparts
-    jump_map: HashMap<usize, usize>,
+    /// Vector to record, for each instruction, the index of the counterpart jump (if any)
+    jump_map: Vec<LocalisedInstruction>
 }
 
 impl BfProgram {
@@ -160,7 +160,7 @@ impl BfProgram {
     }
 
     /// Construct a new BfProgram from a &str
-    fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Self {
+    pub fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Self {
         let mut instructions: Vec<LocalisedInstruction> = Vec::new();
         let jump_map = HashMap::<usize, usize>::new();
 
