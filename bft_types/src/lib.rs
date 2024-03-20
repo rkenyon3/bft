@@ -1,12 +1,11 @@
 //! Instruction types for the BF interpreter to use.
 
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 /// Types of Brainfuck instructions
-#[derive(Debug, PartialEq, Clone, Eq, Hash)]
+#[derive(Debug, PartialEq, Clone, Eq, Copy)]
 pub enum Instruction {
     /// Increment the data pointer by one (to point to the next cell to the left).
     MoveLeft,
@@ -140,7 +139,7 @@ pub struct BfProgram {
     /// A vector of instructions. Not sure how else to describe it
     instructions: Vec<LocalisedInstruction>,
     /// Vector to record, for each instruction, the index of the counterpart jump (if any)
-    jump_map: Vec<LocalisedInstruction>
+    jump_map: Vec<Option<usize>>
 }
 
 impl BfProgram {
@@ -162,7 +161,7 @@ impl BfProgram {
     /// Construct a new BfProgram from a &str
     pub fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Self {
         let mut instructions: Vec<LocalisedInstruction> = Vec::new();
-        let jump_map = HashMap::<usize, usize>::new();
+        let jump_map = Vec::new();
 
         // TODO: see if this can be shortened
         for (line_number, file_line) in file_contents.lines().enumerate() {
@@ -223,12 +222,15 @@ impl BfProgram {
 
             // ...and pop them back off their vector as we find their matches.
             // If we can't pop the corresponding [, we've got unmatched jumps
-            } else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
+            }
+            else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
                 match jump_instructions.pop() {
                     Some(popped_jump) => {
                         let counterpart_index = popped_jump.0;
-                        self.jump_map.insert(program_index, counterpart_index);
-                        self.jump_map.insert(counterpart_index, program_index);
+                        // add a new element pointing this jump back toward its counterpart ']'
+                        self.jump_map.push(Some(counterpart_index));
+                        // and just update the existing entry for the initial '['
+                        self.jump_map[counterpart_index] = Some(program_index);
                     }
                     None => {
                         return Err(format!(
@@ -239,6 +241,9 @@ impl BfProgram {
                         ))
                     }
                 }
+            }
+            else {
+                self.jump_map.push(None);
             }
         }
 
