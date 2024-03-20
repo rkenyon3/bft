@@ -153,13 +153,20 @@ impl BfProgram {
     ///
     ///  let my_bf_program = BfProgram::from_file(bf_file);
     /// ```
-    pub fn from_file<P: AsRef<Path>>(file_path: P) -> std::io::Result<BfProgram> {
+    pub fn from_file<P: AsRef<Path>>(
+        file_path: P,
+    ) -> Result<BfProgram, Box<dyn std::error::Error>> {
+        // TODO: make this better
         let file_contents = fs::read_to_string(&file_path)?;
-        Ok(Self::new(file_path, file_contents.as_str()))
+        Ok(Self::new(file_path, file_contents.as_str())?)
     }
 
     /// Construct a new BfProgram from a &str
+<<<<<<< HEAD
     pub fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Self {
+=======
+    fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Result<BfProgram, String> {
+>>>>>>> 8a90c7d (FIRE!)
         let mut instructions: Vec<LocalisedInstruction> = Vec::new();
         let jump_map = Vec::new();
 
@@ -179,11 +186,15 @@ impl BfProgram {
             }
         }
 
-        Self {
+        let mut new_program = Self {
             name: filename.as_ref().to_path_buf(),
             instructions,
             jump_map,
-        }
+        };
+
+        new_program.analyse_program()?;
+
+        Ok(new_program)
     }
 
     /// Get the name of the program

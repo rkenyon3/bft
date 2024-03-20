@@ -60,8 +60,13 @@ where
     ///#
     /// let mut bf_program = BfProgram::new("my_file.bf",".>.>+++");
     ///
+<<<<<<< HEAD
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
     /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&mut bf_program, tape_size, true)?;
+=======
+    /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(50000).unwrap());
+    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(bf_program, tape_size, true);
+>>>>>>> 8a90c7d (FIRE!)
     ///#
     ///# Ok(())
     ///# }
@@ -104,8 +109,21 @@ where
     /// ```   
     pub fn interpret_program(&mut self) -> Result<(), VMError> {
         while self.program_counter != self.program.instructions().len() {
+<<<<<<< HEAD
             let next_head_position = self.interpret_instruction()?;
             self.head = next_head_position;
+=======
+            match self.program.instructions()[self.program_counter].instruction() {
+                Instruction::MoveLeft => self.move_head_left()?,
+                Instruction::MoveRight => self.move_head_right()?,
+                Instruction::Increment => self.increment_cell(),
+                Instruction::Decrement => self.decrement_cell(),
+                Instruction::Input => self.read_value(&mut std::io::stdin())?,
+                Instruction::Output => self.print_value(&mut std::io::stdout())?,
+                Instruction::ConditionalJumpForward => todo!(),
+                Instruction::ConditionalJumpBackward => todo!(),
+            };
+>>>>>>> 8a90c7d (FIRE!)
         }
 
         Ok(())

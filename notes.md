@@ -68,3 +68,26 @@ marker traits
 
 # TODO
 read up on drop, read, write, display and formatters, option, result, iterator
+
+# session-05 review sam
+- checked functions in move_head_left
+- failing read/write can be caused with an empty buffer
+
+# Session 07
+- read up on coupling, coherence, and cohesion
+- coupling is how much code in one place affects code in another. Tightly coupled code is spaghetti code
+- coherence is how well isolated code is. Coherent, well-isolated code is easier to understand and use.
+- refactoring is a specific term, and implies that the code being tested has a strong testing setup to confirm that the changes made no functional change. Writing new tests means you are not refactoring.
+- 
+- default visibility is "not public"
+- accessible to stuff in the main.rs file and descendants
+- pub (public) is widest possible visibility
+- any code that can find a path to this item, can access it
+- struct members are private by default
+- trivial accessor methods are encouraged
+- restricted public access levels exist
+- pub(Crate)
+- pub(super)
+- pub(self)
+- pub(in some::path)
+- cargo semver checks
