@@ -7,3 +7,5 @@ edition = "2021"
 
 [dependencies]
 bft_types = { path = "../bft_types" }
+rstest = "0.18.2"
+tempfile = "3.10.0"
