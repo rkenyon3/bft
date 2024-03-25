@@ -1,4 +1,4 @@
-//! Brainfuck Interpreter. This crate takes created a [BfProgram] from a file and runs it on a
+//! Brainfuck Interpreter. This takes created a [BfProgram] from a file and runs it on a
 //! virtual machine. The program is first analysed to confirm that the jump commands ('[' and ']')
 //! are balanced.
 //!
@@ -10,53 +10,26 @@
 
 mod cli;
 
-use std::{num::NonZeroUsize, path::PathBuf, process::ExitCode};
+use std::process::ExitCode;
 
 use bft_interp::VirtualMachine;
 use bft_types::BfProgram;
 use clap::Parser;
 
-/// Parameters for creation of a [VirtualMachine]
-struct BftParams {
-    /// Path of the program file containing a bf program
-    program_file: PathBuf,
-    /// Number of cells on the VM tape. May be None for default size
-    tape_cell_count: Option<NonZeroUsize>,
-    /// Determines whether the tape may automatically when the head reaches the
-    /// end
-    tape_is_extensible: bool,
-}
-
-impl BftParams {
-    fn new(
-        program_file: PathBuf,
-        tape_cell_count: Option<NonZeroUsize>,
-        tape_is_extensible: bool,
-    ) -> Self {
-        Self {
-            program_file,
-            tape_cell_count,
-            tape_is_extensible,
-        }
-    }
-}
+use cli::Args;
 
 /// Analyse the program for validity, then construct a [VirtualMachine] and
 /// run it
 ///```no_run
 /// let args = cli::Args::parse();
-/// let params = BftParams::new(args.program, args.cells, args.extensible);
 ///
-/// run_bft(params)?;
+/// run_bft(&args)?;
 ///```
-fn run_bft(params: BftParams) -> Result<(), Box<dyn std::error::Error>> {
-    let mut bf_program = BfProgram::from_file(params.program_file)?;
+fn run_bft(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
+    let mut bf_program = BfProgram::from_file(&args.program)?;
 
-    let _bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(
-        &mut bf_program,
-        params.tape_cell_count,
-        params.tape_is_extensible,
-    )?;
+    let _bf_interpreter: VirtualMachine<u8> =
+        VirtualMachine::new(&mut bf_program, args.cells, args.extensible)?;
 
     Ok(())
 }
@@ -65,14 +38,9 @@ fn run_bft(params: BftParams) -> Result<(), Box<dyn std::error::Error>> {
 fn main() -> std::process::ExitCode {
     let args = cli::Args::parse();
 
-    let params = BftParams::new(args.program, args.cells, args.extensible);
-
-    let run_result = run_bft(params);
+    let run_result = run_bft(&args);
     match run_result {
-        Ok(()) => {
-            println!("Done");
-            ExitCode::SUCCESS
-        }
+        Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
             println!("Error: {}", e);
             ExitCode::FAILURE

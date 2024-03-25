@@ -109,7 +109,7 @@ impl LocalisedInstruction {
     }
 
     pub fn instruction(&self) -> Instruction {
-        self.instruction.clone()
+        self.instruction
     }
 
     pub fn line_num(&self) -> usize {
@@ -139,7 +139,7 @@ pub struct BfProgram {
     /// A vector of instructions. Not sure how else to describe it
     instructions: Vec<LocalisedInstruction>,
     /// Vector to record, for each instruction, the index of the counterpart jump (if any)
-    jump_map: Vec<Option<usize>>
+    jump_map: Vec<Option<usize>>,
 }
 
 impl BfProgram {
@@ -162,11 +162,7 @@ impl BfProgram {
     }
 
     /// Construct a new BfProgram from a &str
-<<<<<<< HEAD
-    pub fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Self {
-=======
-    fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Result<BfProgram, String> {
->>>>>>> 8a90c7d (FIRE!)
+    pub fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Result<BfProgram, String> {
         let mut instructions: Vec<LocalisedInstruction> = Vec::new();
         let jump_map = Vec::new();
 
@@ -202,7 +198,7 @@ impl BfProgram {
         &self.name
     }
 
-    /// Borrow a copy of the instructions
+    /// The instructions that make up this program
     pub fn instructions(&self) -> &[LocalisedInstruction] {
         &self.instructions
     }
@@ -233,8 +229,7 @@ impl BfProgram {
 
             // ...and pop them back off their vector as we find their matches.
             // If we can't pop the corresponding [, we've got unmatched jumps
-            }
-            else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
+            } else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
                 match jump_instructions.pop() {
                     Some(popped_jump) => {
                         let counterpart_index = popped_jump.0;
@@ -252,8 +247,7 @@ impl BfProgram {
                         ))
                     }
                 }
-            }
-            else {
+            } else {
                 self.jump_map.push(None);
             }
         }
@@ -294,13 +288,15 @@ mod tests {
     }
 
     /// Check that a program can be constructed and records line and column numbers correctly
+    // TODO: make this not rely on relative files.
+    // see https://github.com/rkenyon3/bft/pull/2#discussion_r1512435535
     #[test]
     fn parse_program() {
         let filename = Path::new("test_file.bf");
         let lines = "_<\n__<\n";
         let placeholder_instruction_type = Instruction::from_char('<').unwrap(); // probably shouldn't use unwrap here but I'm getting fed up of this and it'll do for now
 
-        let bf_program = BfProgram::new(filename, lines);
+        let bf_program = BfProgram::new(filename, lines).unwrap();
 
         assert_eq!(bf_program.name(), filename);
 
@@ -319,7 +315,7 @@ mod tests {
         let filename = Path::new("test_file.bf");
         let lines = "_>>[<\n].,,[<\n]";
 
-        let mut bf_program = BfProgram::new(filename, lines);
+        let mut bf_program = BfProgram::new(filename, lines).unwrap();
 
         let result = bf_program.analyse_program();
         let expected = Ok(());
@@ -333,7 +329,7 @@ mod tests {
         let filename = Path::new("test_file.bf");
         let lines = "_>>[<\n][[].,,<\n";
 
-        let mut bf_program = BfProgram::new(filename, lines);
+        let mut bf_program = BfProgram::new(filename, lines).unwrap();
 
         let result = bf_program.analyse_program();
         // Note: error message text matches the test program specifically

@@ -1,6 +1,7 @@
 //! CLI interface arguments for the Brainfuck interpreter
 
 use std::num::NonZeroUsize;
+use std::path::PathBuf;
 
 use clap::Parser;
 
@@ -8,7 +9,7 @@ use clap::Parser;
 #[command(author, version, about)]
 pub struct Args {
     /// Path to the file containing the brainfuck program. Required.
-    pub program: std::path::PathBuf,
+    pub program: PathBuf,
 
     /// Initial size of the VM's tape.
     #[arg(short, long)]

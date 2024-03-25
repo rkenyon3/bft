@@ -60,13 +60,8 @@ where
     ///#
     /// let mut bf_program = BfProgram::new("my_file.bf",".>.>+++");
     ///
-<<<<<<< HEAD
-    /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(30000).unwrap());
-    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&mut bf_program, tape_size, true)?;
-=======
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(50000).unwrap());
     /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(bf_program, tape_size, true);
->>>>>>> 8a90c7d (FIRE!)
     ///#
     ///# Ok(())
     ///# }
@@ -109,21 +104,8 @@ where
     /// ```   
     pub fn interpret_program(&mut self) -> Result<(), VMError> {
         while self.program_counter != self.program.instructions().len() {
-<<<<<<< HEAD
             let next_head_position = self.interpret_instruction()?;
             self.head = next_head_position;
-=======
-            match self.program.instructions()[self.program_counter].instruction() {
-                Instruction::MoveLeft => self.move_head_left()?,
-                Instruction::MoveRight => self.move_head_right()?,
-                Instruction::Increment => self.increment_cell(),
-                Instruction::Decrement => self.decrement_cell(),
-                Instruction::Input => self.read_value(&mut std::io::stdin())?,
-                Instruction::Output => self.print_value(&mut std::io::stdout())?,
-                Instruction::ConditionalJumpForward => todo!(),
-                Instruction::ConditionalJumpBackward => todo!(),
-            };
->>>>>>> 8a90c7d (FIRE!)
         }
 
         Ok(())
@@ -294,7 +276,7 @@ mod tests {
     use tempfile::NamedTempFile;
 
     fn make_palceholder_program() -> BfProgram {
-        BfProgram::new("test_file.bf", ",.[test]+++.")
+        BfProgram::new("test_file.bf", ",.[test]+++.").unwrap()
     }
 
     // Does creating a VM with all paameters explicitly specified work?
@@ -310,7 +292,6 @@ mod tests {
         assert_eq!(vm.head, 0);
         assert_eq!(vm.tape_can_grow, true);
         assert_eq!(vm.program_counter, 0);
-        let test_program = test_program.clone();
         assert_eq!(vm.program, &test_program);
     }
 
@@ -319,7 +300,8 @@ mod tests {
     fn test_create_vm_default_params() {
         let mut placeholder_program = make_palceholder_program();
 
-        let vm: VirtualMachine<u8> = VirtualMachine::new(&mut placeholder_program, None, true).unwrap();
+        let vm: VirtualMachine<u8> =
+            VirtualMachine::new(&mut placeholder_program, None, true).unwrap();
 
         assert_eq!(vm.cells.len(), 30_000);
     }
