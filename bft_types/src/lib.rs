@@ -203,6 +203,11 @@ impl BfProgram {
         &self.instructions
     }
 
+    /// The vector of indexes '[' and ']' may jump to
+    pub fn jump_map(&self) -> &Vec<Option<usize>> {
+        &self.jump_map
+    }
+
     /// Analyse the program to ensure that it is syntactically valid
     ///
     /// ```no_run
@@ -233,10 +238,10 @@ impl BfProgram {
                 match jump_instructions.pop() {
                     Some(popped_jump) => {
                         let counterpart_index = popped_jump.0;
-                        // add a new element pointing this jump back toward its counterpart ']'
-                        self.jump_map.push(Some(counterpart_index));
-                        // and just update the existing entry for the initial '['
-                        self.jump_map[counterpart_index] = Some(program_index);
+                        // add a new element pointing this jump back toward the next instruction after its counterpart ']'
+                        self.jump_map.push(Some(counterpart_index + 1));
+                        // and just update the existing entry for the initial '[' to point to the instruction after this one
+                        self.jump_map[counterpart_index] = Some(program_index + 1);
                     }
                     None => {
                         return Err(format!(
