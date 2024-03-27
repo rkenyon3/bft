@@ -23,7 +23,7 @@ pub enum VMError {
     /// Writing a byte from stdio went bloop
     WriteError(LocalisedInstruction, String),
     /// Program contained a jump instruction with no mapping
-    UnmappedJump(LocalisedInstruction)
+    UnmappedJump(LocalisedInstruction),
 }
 
 /// Represents a machine with a memory tape of cells. Accepts a type T for the tape
@@ -46,6 +46,8 @@ pub trait CellKind: Clone + Default {
     fn set_value(&mut self, value: u8);
     /// Gets the value of the cell
     fn get_value(&self) -> u8;
+    /// Determine if the value of the cell is zero
+    fn is_zero(&self) -> bool;
 }
 
 impl<'a, T> VirtualMachine<'a, T>
@@ -158,7 +160,7 @@ where
     }
 
     /// Perform a wrapping increment on the cell pointed at by the head
-    fn increment_cell(&mut self) -> Result<usize, VMError>{
+    fn increment_cell(&mut self) -> Result<usize, VMError> {
         self.cells[self.head].wrapping_increment();
         Ok(self.program_counter + 1)
     }
@@ -175,7 +177,7 @@ where
         match source.read_exact(&mut buffer) {
             Ok(_) => {
                 self.cells[self.head].set_value(buffer[0]);
-                Ok(self.program_counter+1)
+                Ok(self.program_counter + 1)
             }
             Err(error) => {
                 let bad_instruction = self.program.instructions()[self.program_counter].clone();
@@ -200,35 +202,38 @@ where
     /// Jump to the instruction after the matching ']' if the value in the cell under the head is
     /// zero. If the cell value is not zero, simply move to the next element of the program. Return
     /// the index of the next program instruction.
-    fn conditional_jump_forward(&self) -> Result<usize, VMError>{
-        match self.program.jump_map()[self.program_counter]{
-            Some(next_index) => {
-                if self.cells[self.head].get_value() == 0{
-                    return Ok(next_index);
+    fn conditional_jump_forward(&self) -> Result<usize, VMError> {
+        match self.program.jump_map()[self.program_counter] {
+            Some(jump_index) => {
+                if self.cells[self.head].is_zero() {
+                    return Ok(jump_index);
                 }
-                return Ok(self.program_counter + 1)
-            },
+                Ok(self.program_counter + 1)
+            }
             // If this ever gets spat out, something has gone very wrong
-            None=>Err(VMError::UnmappedJump(self.program.instructions()[self.program_counter].clone()))
+            None => Err(VMError::UnmappedJump(
+                self.program.instructions()[self.program_counter].clone(),
+            )),
         }
     }
 
     /// Jump to the instruction after the matching '[' if the value in the cell under the head is
     /// not zero. If the cell value is zero, simply move to the next element of the program. Return
     /// the index of the next program instruction.
-    fn conditional_jump_backward(&self) -> Result<usize, VMError>{
-        match self.program.jump_map()[self.program_counter]{
-            Some(next_index) => {
-                if self.cells[self.head].get_value() != 0{
-                    return Ok(next_index);
+    fn conditional_jump_backward(&self) -> Result<usize, VMError> {
+        match self.program.jump_map()[self.program_counter] {
+            Some(jump_index) => {
+                if self.cells[self.head].is_zero() {
+                    return Ok(self.program_counter + 1);
                 }
-                return Ok(self.program_counter + 1)
-            },
+                Ok(jump_index)
+            }
             // If this ever gets spat out, something has gone very wrong
-            None=>Err(VMError::UnmappedJump(self.program.instructions()[self.program_counter].clone()))
+            None => Err(VMError::UnmappedJump(
+                self.program.instructions()[self.program_counter].clone(),
+            )),
         }
     }
-
 }
 
 impl CellKind for u8 {
@@ -246,6 +251,10 @@ impl CellKind for u8 {
 
     fn get_value(&self) -> u8 {
         *self
+    }
+
+    fn is_zero(&self) -> bool {
+        *self == 0
     }
 }
 
@@ -316,8 +325,6 @@ impl From<(LocalisedInstruction, std::io::Error)> for VMError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::{ErrorKind, Write};
-    use tempfile::NamedTempFile;
 
     fn make_placeholder_program() -> BfProgram {
         BfProgram::new("test_file.bf", ",.[test]+++.").unwrap()
@@ -334,7 +341,7 @@ mod tests {
 
         assert_eq!(vm.cells.len(), 10_000);
         assert_eq!(vm.head, 0);
-        assert_eq!(vm.tape_can_grow, true);
+        assert!(vm.tape_can_grow);
         assert_eq!(vm.program_counter, 0);
         assert_eq!(vm.program, &test_program);
     }
@@ -344,7 +351,8 @@ mod tests {
     fn test_create_vm_default_params() {
         let mut placeholder_program = make_placeholder_program();
 
-        let vm: VirtualMachine<u8> = VirtualMachine::new(&mut placeholder_program, None, true).unwrap();
+        let vm: VirtualMachine<u8> =
+            VirtualMachine::new(&mut placeholder_program, None, true).unwrap();
 
         assert_eq!(vm.cells.len(), 30_000);
     }
@@ -524,7 +532,7 @@ mod tests {
         let mut test_program = make_placeholder_program();
         let mut vm: VirtualMachine<u8> =
             VirtualMachine::new(&mut test_program, None, false).unwrap();
-        let mut buf: Vec<u8> = vec![0; 10];
+        let buf: Vec<u8> = vec![0; 10];
         let mut cursor = std::io::Cursor::new(buf);
 
         vm.cells[0] = 65;
@@ -539,8 +547,7 @@ mod tests {
     #[test]
     fn test_write_bad() {
         let mut test_program = make_placeholder_program();
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
         let mut cursor = std::io::Cursor::new([0; 0]);
 
         let result = vm.print_value(&mut cursor);

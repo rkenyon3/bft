@@ -231,10 +231,11 @@ impl BfProgram {
             // to begin with, store program_indexes and jump-forward instructuctions...
             if program_instruction.instruction == Instruction::ConditionalJumpForward {
                 jump_instructions.push((program_index, program_instruction));
-
+                self.jump_map.push(None); // push a placeholder
+            }
             // ...and pop them back off their vector as we find their matches.
             // If we can't pop the corresponding [, we've got unmatched jumps
-            } else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
+            else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
                 match jump_instructions.pop() {
                     Some(popped_jump) => {
                         let counterpart_index = popped_jump.0;
@@ -269,6 +270,7 @@ impl BfProgram {
     }
 }
 
+// TODO: find out why cargo test --all from ../../.. isn't runnning these tests :(
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -298,50 +300,57 @@ mod tests {
     #[test]
     fn parse_program() {
         let filename = Path::new("test_file.bf");
-        let lines = "_<\n__<\n";
-        let placeholder_instruction_type = Instruction::from_char('<').unwrap(); // probably shouldn't use unwrap here but I'm getting fed up of this and it'll do for now
+        let lines = "..[<>]..[]..";
+        let expected_jump_map: Vec<Option<usize>> = vec![
+            None,
+            None,
+            Some(6),
+            None,
+            None,
+            Some(3),
+            None,
+            None,
+            Some(10),
+            Some(9),
+            None,
+            None,
+        ];
 
         let bf_program = BfProgram::new(filename, lines).unwrap();
 
         assert_eq!(bf_program.name(), filename);
-
-        let expected_instruction =
-            LocalisedInstruction::new(placeholder_instruction_type.clone(), 1, 2);
-        assert_eq!(bf_program.instructions.get(0), Some(&expected_instruction));
-
-        let expected_instruction =
-            LocalisedInstruction::new(placeholder_instruction_type.clone(), 2, 3);
-        assert_eq!(bf_program.instructions.get(1), Some(&expected_instruction));
+        assert_eq!(bf_program.jump_map, expected_jump_map);
     }
 
-    /// check that analysing a valid program works
-    #[test]
-    fn test_analyse_good() {
-        let filename = Path::new("test_file.bf");
-        let lines = "_>>[<\n].,,[<\n]";
-
-        let mut bf_program = BfProgram::new(filename, lines).unwrap();
-
-        let result = bf_program.analyse_program();
-        let expected = Ok(());
-
-        assert_eq!(result, expected);
-    }
-
-    /// check that analysing a valid program works
+    /// check that we find an unmatched [
     #[test]
     fn test_analyse_unmatched_open_square_bracket() {
         let filename = Path::new("test_file.bf");
         let lines = "_>>[<\n][[].,,<\n";
 
-        let mut bf_program = BfProgram::new(filename, lines).unwrap();
+        let result = BfProgram::new(filename, lines);
 
-        let result = bf_program.analyse_program();
         // Note: error message text matches the test program specifically
-        let expected_response = Err(String::from(
+        let expected_result = Err(String::from(
             "test_file.bf: Unmatched bracket on line 2, col 2",
         ));
 
-        assert_eq!(result, expected_response);
+        assert_eq!(result, expected_result);
+    }
+
+    /// check that we find an unmatched ]
+    #[test]
+    fn test_analyse_unmatched_close_square_bracket() {
+        let filename = Path::new("test_file.bf");
+        let lines = "_>>[<\n]].,,<\n";
+
+        let result = BfProgram::new(filename, lines);
+
+        // Note: error message text matches the test program specifically
+        let expected_result = Err(String::from(
+            "test_file.bf: Unmatched bracket on line 2, col 2",
+        ));
+
+        assert_eq!(result, expected_result);
     }
 }
