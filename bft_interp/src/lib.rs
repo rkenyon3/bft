@@ -46,6 +46,8 @@ pub trait CellKind: Clone + Default {
     fn set_value(&mut self, value: u8);
     /// Gets the value of the cell
     fn get_value(&self) -> u8;
+    /// Determine if the value of the cell is zero
+    fn is_zero(&self) -> bool;
 }
 
 impl<'a, T> VirtualMachine<'a, T>
@@ -202,9 +204,9 @@ where
     /// the index of the next program instruction.
     fn conditional_jump_forward(&self) -> Result<usize, VMError>{
         match self.program.jump_map()[self.program_counter]{
-            Some(next_index) => {
-                if self.cells[self.head].get_value() == 0{
-                    return Ok(next_index);
+            Some(jump_index) => {
+                if self.cells[self.head].is_zero(){
+                    return Ok(jump_index);
                 }
                 return Ok(self.program_counter + 1)
             },
@@ -218,11 +220,11 @@ where
     /// the index of the next program instruction.
     fn conditional_jump_backward(&self) -> Result<usize, VMError>{
         match self.program.jump_map()[self.program_counter]{
-            Some(next_index) => {
-                if self.cells[self.head].get_value() != 0{
-                    return Ok(next_index);
+            Some(jump_index) => {
+                if self.cells[self.head].is_zero(){
+                    return Ok(self.program_counter + 1)
                 }
-                return Ok(self.program_counter + 1)
+                return Ok(jump_index);
             },
             // If this ever gets spat out, something has gone very wrong
             None=>Err(VMError::UnmappedJump(self.program.instructions()[self.program_counter].clone()))
@@ -246,6 +248,10 @@ impl CellKind for u8 {
 
     fn get_value(&self) -> u8 {
         *self
+    }
+
+    fn is_zero(&self) -> bool {
+        *self == 0
     }
 }
 
