@@ -199,9 +199,9 @@ where
         }
     }
 
-    /// Jump to the instruction after the matching ']' if the value in the cell under the head is
-    /// zero. If the cell value is not zero, simply move to the next element of the program. Return
-    /// the index of the next program instruction.
+    /// Get the next program instruction index based on the value of the cell under the head.
+    /// If the cell is zero, return the index of the instruction after the matching ].
+    /// If the cell is not zero, return the index of the next instruction after this one.
     fn conditional_jump_forward(&self) -> Result<usize, VMError> {
         match self.program.jump_map()[self.program_counter] {
             Some(jump_index) => {
@@ -217,9 +217,9 @@ where
         }
     }
 
-    /// Jump to the instruction after the matching '[' if the value in the cell under the head is
-    /// not zero. If the cell value is zero, simply move to the next element of the program. Return
-    /// the index of the next program instruction.
+    /// Get the next program instruction index based on the value of the cell under the head.
+    /// If the cell is zero, return the index of the next instruction after this one.
+    /// If the cell is not zero, return the index of the instruction after the matching [.
     fn conditional_jump_backward(&self) -> Result<usize, VMError> {
         match self.program.jump_map()[self.program_counter] {
             Some(jump_index) => {
@@ -553,5 +553,67 @@ mod tests {
         let result = vm.print_value(&mut cursor);
 
         assert!(result.is_err());
+    }
+
+    // Helper function for testing jumps
+    fn jumps_test_program() -> BfProgram {
+        let test_program_content = "[..]..";
+        BfProgram::new("test_program.bf", test_program_content).unwrap()
+    }
+
+    // Does a conditional jump forward work when the cell under the head is zero
+    #[test]
+    fn test_forward_jump_cell_zero() {
+        let mut prog = jumps_test_program();
+        let mut vm = VirtualMachine::<u8>::new(&mut prog, None, true).unwrap();
+
+        vm.cells[0].set_value(0);
+        vm.program_counter = 0;
+
+        let next_prog_index = vm.conditional_jump_forward().unwrap();
+
+        assert_eq!(next_prog_index, 4)
+    }
+
+    // Does a conditional jump forward work when the cell under the head is not zero
+    #[test]
+    fn test_forward_jump_cell_nonzero() {
+        let mut prog = jumps_test_program();
+        let mut vm = VirtualMachine::<u8>::new(&mut prog, None, true).unwrap();
+
+        vm.cells[0].set_value(7);
+        vm.program_counter = 0;
+
+        let next_prog_index = vm.conditional_jump_forward().unwrap();
+
+        assert_eq!(next_prog_index, 1)
+    }
+
+    // Does a conditional jump backward work when the cell under the head is zero
+    #[test]
+    fn test_backward_jump_cell_zero() {
+        let mut prog = jumps_test_program();
+        let mut vm = VirtualMachine::<u8>::new(&mut prog, None, true).unwrap();
+
+        vm.cells[0].set_value(0);
+        vm.program_counter = 3;
+
+        let next_prog_index = vm.conditional_jump_backward().unwrap();
+
+        assert_eq!(next_prog_index, 4)
+    }
+
+    // Does a conditional jump backward work when the cell under the head is not zero
+    #[test]
+    fn test_backward_jump_cell_nonzero() {
+        let mut prog = jumps_test_program();
+        let mut vm = VirtualMachine::<u8>::new(&mut prog, None, true).unwrap();
+
+        vm.cells[0].set_value(7);
+        vm.program_counter = 3;
+
+        let next_prog_index = vm.conditional_jump_backward().unwrap();
+
+        assert_eq!(next_prog_index, 1)
     }
 }
