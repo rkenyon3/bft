@@ -106,26 +106,20 @@ where
     ///# Ok(())
     ///# }
     /// ```   
-    pub fn interpret_program(&mut self) -> Result<(), VMError> {
-        while self.program_counter != self.program.instructions().len() {
-            let next_head_position = self.interpret_instruction()?;
-            self.head = next_head_position;
+    pub fn interpret<R, W>(&mut self, mut input: R, mut output: W) -> Result<(), VMError>  where R: Read, W: Write{
+        while self.program_counter < self.program.localised_instructions().len() {
+            self.head = match self.program.localised_instructions()[self.program_counter].instruction() {
+                Instruction::MoveLeft => self.move_head_left()?,
+                Instruction::MoveRight => self.move_head_right()?,
+                Instruction::Increment => self.increment_cell()?,
+                Instruction::Decrement => self.decrement_cell()?,
+                Instruction::Input => self.read_value(&mut input)?,
+                Instruction::Output => self.print_value(&mut output)?,
+                Instruction::ConditionalJumpForward => self.conditional_jump_forward()?,
+                Instruction::ConditionalJumpBackward => self.conditional_jump_backward()?,
+            };
         }
-
         Ok(())
-    }
-
-    fn interpret_instruction(&mut self) -> Result<usize, VMError> {
-        match self.program.instructions()[self.program_counter].instruction() {
-            Instruction::MoveLeft => self.move_head_left(),
-            Instruction::MoveRight => self.move_head_right(),
-            Instruction::Increment => self.increment_cell(),
-            Instruction::Decrement => self.decrement_cell(),
-            Instruction::Input => self.read_value(&mut std::io::stdin()),
-            Instruction::Output => self.print_value(&mut std::io::stdout()),
-            Instruction::ConditionalJumpForward => self.conditional_jump_forward(),
-            Instruction::ConditionalJumpBackward => self.conditional_jump_backward(),
-        }
     }
 
     /// Move the head one cell towards the left (start) of the tape
@@ -135,7 +129,7 @@ where
 
             Ok(self.program_counter + 1)
         } else {
-            let bad_instruction = self.program.instructions()[self.program_counter].clone();
+            let bad_instruction = self.program.localised_instructions()[self.program_counter].clone();
             Err(VMError::HeadUnderrun(bad_instruction))
         }
     }
@@ -151,7 +145,7 @@ where
             if self.tape_can_grow {
                 self.cells.push(T::default());
             } else {
-                let bad_instruction = self.program.instructions()[self.program_counter].clone();
+                let bad_instruction = self.program.localised_instructions()[self.program_counter].clone();
                 return Err(VMError::HeadOverrun(bad_instruction));
             }
         }
@@ -180,7 +174,7 @@ where
                 Ok(self.program_counter + 1)
             }
             Err(error) => {
-                let bad_instruction = self.program.instructions()[self.program_counter].clone();
+                let bad_instruction = self.program.localised_instructions()[self.program_counter].clone();
                 Err(VMError::from((bad_instruction, error)))
             }
         }
@@ -193,7 +187,7 @@ where
             Ok(_) => Ok(self.program_counter + 1),
 
             Err(error) => {
-                let bad_instruction = self.program.instructions()[self.program_counter].clone();
+                let bad_instruction = self.program.localised_instructions()[self.program_counter].clone();
                 Err(VMError::from((bad_instruction, error)))
             }
         }
@@ -212,7 +206,7 @@ where
             }
             // If this ever gets spat out, something has gone very wrong
             None => Err(VMError::UnmappedJump(
-                self.program.instructions()[self.program_counter].clone(),
+                self.program.localised_instructions()[self.program_counter].clone(),
             )),
         }
     }
@@ -230,7 +224,7 @@ where
             }
             // If this ever gets spat out, something has gone very wrong
             None => Err(VMError::UnmappedJump(
-                self.program.instructions()[self.program_counter].clone(),
+                self.program.localised_instructions()[self.program_counter].clone(),
             )),
         }
     }
@@ -375,7 +369,7 @@ mod tests {
     #[test]
     fn test_move_head_left_extensible_bad() {
         let mut test_program = make_placeholder_program();
-        let bad_instruction = test_program.instructions()[0].clone();
+        let bad_instruction = test_program.localised_instructions()[0].clone();
 
         let mut vm: VirtualMachine<u8> =
             VirtualMachine::new(&mut test_program, None, true).unwrap();
@@ -418,7 +412,7 @@ mod tests {
     #[test]
     fn test_move_head_right_fixed_bad() {
         let mut test_program = make_placeholder_program();
-        let bad_instruction = test_program.instructions()[0].clone();
+        let bad_instruction = test_program.localised_instructions()[0].clone();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
         let mut vm: VirtualMachine<u8> =
             VirtualMachine::new(&mut test_program, tape_len, false).unwrap();
@@ -456,7 +450,7 @@ mod tests {
             VirtualMachine::new(&mut test_program, None, false).unwrap();
 
         vm.cells[0] = 10;
-        vm.increment_cell();
+        let _ = vm.increment_cell();
 
         assert_eq!(vm.cells[0], 11);
     }
@@ -469,7 +463,7 @@ mod tests {
             VirtualMachine::new(&mut test_program, None, false).unwrap();
 
         vm.cells[0] = u8::MAX;
-        vm.increment_cell();
+        let _ = vm.increment_cell();
 
         assert_eq!(vm.cells[0], u8::MIN);
     }
@@ -481,7 +475,7 @@ mod tests {
             VirtualMachine::new(&mut test_program, None, false).unwrap();
 
         vm.cells[0] = 10;
-        vm.decrement_cell();
+        let _ = vm.decrement_cell();
 
         assert_eq!(vm.cells[0], 9);
     }
@@ -494,7 +488,7 @@ mod tests {
             VirtualMachine::new(&mut test_program, None, false).unwrap();
 
         vm.cells[0] = u8::MIN;
-        vm.decrement_cell();
+        let _ = vm.decrement_cell();
 
         assert_eq!(vm.cells[0], u8::MAX);
     }

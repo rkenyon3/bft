@@ -199,7 +199,7 @@ impl BfProgram {
     }
 
     /// The instructions that make up this program
-    pub fn instructions(&self) -> &[LocalisedInstruction] {
+    pub fn localised_instructions(&self) -> &[LocalisedInstruction] {
         &self.instructions
     }
 

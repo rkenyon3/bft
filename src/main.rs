@@ -15,6 +15,7 @@ use std::process::ExitCode;
 use bft_interp::VirtualMachine;
 use bft_types::BfProgram;
 use clap::Parser;
+use std::io::{stdin, stdout};
 
 use cli::Args;
 
@@ -28,8 +29,10 @@ use cli::Args;
 fn run_bft(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     let mut bf_program = BfProgram::from_file(&args.program)?;
 
-    let _bf_interpreter: VirtualMachine<u8> =
+    let mut bf_interpreter: VirtualMachine<u8> =
         VirtualMachine::new(&mut bf_program, args.cells, args.extensible)?;
+
+    bf_interpreter.interpret(stdin(), stdout())?;
 
     Ok(())
 }
