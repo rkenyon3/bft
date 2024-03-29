@@ -106,18 +106,23 @@ where
     ///# Ok(())
     ///# }
     /// ```   
-    pub fn interpret<R, W>(&mut self, mut input: R, mut output: W) -> Result<(), VMError>  where R: Read, W: Write{
+    pub fn interpret(
+        &mut self,
+        input: &mut impl Read,
+        output: &mut impl Write,
+    ) -> Result<(), VMError> {
         while self.program_counter < self.program.localised_instructions().len() {
-            self.head = match self.program.localised_instructions()[self.program_counter].instruction() {
-                Instruction::MoveLeft => self.move_head_left()?,
-                Instruction::MoveRight => self.move_head_right()?,
-                Instruction::Increment => self.increment_cell()?,
-                Instruction::Decrement => self.decrement_cell()?,
-                Instruction::Input => self.read_value(&mut input)?,
-                Instruction::Output => self.print_value(&mut output)?,
-                Instruction::ConditionalJumpForward => self.conditional_jump_forward()?,
-                Instruction::ConditionalJumpBackward => self.conditional_jump_backward()?,
-            };
+            self.program_counter =
+                match self.program.localised_instructions()[self.program_counter].instruction() {
+                    Instruction::MoveLeft => self.move_head_left()?,
+                    Instruction::MoveRight => self.move_head_right()?,
+                    Instruction::Increment => self.increment_cell()?,
+                    Instruction::Decrement => self.decrement_cell()?,
+                    Instruction::Input => self.read_value(input)?,
+                    Instruction::Output => self.print_value(output)?,
+                    Instruction::ConditionalJumpForward => self.conditional_jump_forward()?,
+                    Instruction::ConditionalJumpBackward => self.conditional_jump_backward()?,
+                };
         }
         Ok(())
     }
@@ -129,7 +134,8 @@ where
 
             Ok(self.program_counter + 1)
         } else {
-            let bad_instruction = self.program.localised_instructions()[self.program_counter].clone();
+            let bad_instruction =
+                self.program.localised_instructions()[self.program_counter].clone();
             Err(VMError::HeadUnderrun(bad_instruction))
         }
     }
@@ -145,7 +151,8 @@ where
             if self.tape_can_grow {
                 self.cells.push(T::default());
             } else {
-                let bad_instruction = self.program.localised_instructions()[self.program_counter].clone();
+                let bad_instruction =
+                    self.program.localised_instructions()[self.program_counter].clone();
                 return Err(VMError::HeadOverrun(bad_instruction));
             }
         }
@@ -174,7 +181,8 @@ where
                 Ok(self.program_counter + 1)
             }
             Err(error) => {
-                let bad_instruction = self.program.localised_instructions()[self.program_counter].clone();
+                let bad_instruction =
+                    self.program.localised_instructions()[self.program_counter].clone();
                 Err(VMError::from((bad_instruction, error)))
             }
         }
@@ -187,7 +195,8 @@ where
             Ok(_) => Ok(self.program_counter + 1),
 
             Err(error) => {
-                let bad_instruction = self.program.localised_instructions()[self.program_counter].clone();
+                let bad_instruction =
+                    self.program.localised_instructions()[self.program_counter].clone();
                 Err(VMError::from((bad_instruction, error)))
             }
         }
@@ -318,6 +327,8 @@ impl From<(LocalisedInstruction, std::io::Error)> for VMError {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Cursor;
+
     use super::*;
 
     fn make_placeholder_program() -> BfProgram {
@@ -559,7 +570,7 @@ mod tests {
     #[test]
     fn test_forward_jump_cell_zero() {
         let mut prog = jumps_test_program();
-        let mut vm = VirtualMachine::<u8>::new(&mut prog, None, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true).unwrap();
 
         vm.cells[0].set_value(0);
         vm.program_counter = 0;
@@ -573,7 +584,7 @@ mod tests {
     #[test]
     fn test_forward_jump_cell_nonzero() {
         let mut prog = jumps_test_program();
-        let mut vm = VirtualMachine::<u8>::new(&mut prog, None, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true).unwrap();
 
         vm.cells[0].set_value(7);
         vm.program_counter = 0;
@@ -587,7 +598,7 @@ mod tests {
     #[test]
     fn test_backward_jump_cell_zero() {
         let mut prog = jumps_test_program();
-        let mut vm = VirtualMachine::<u8>::new(&mut prog, None, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true).unwrap();
 
         vm.cells[0].set_value(0);
         vm.program_counter = 3;
@@ -601,7 +612,7 @@ mod tests {
     #[test]
     fn test_backward_jump_cell_nonzero() {
         let mut prog = jumps_test_program();
-        let mut vm = VirtualMachine::<u8>::new(&mut prog, None, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true).unwrap();
 
         vm.cells[0].set_value(7);
         vm.program_counter = 3;
@@ -609,5 +620,24 @@ mod tests {
         let next_prog_index = vm.conditional_jump_backward().unwrap();
 
         assert_eq!(next_prog_index, 1)
+    }
+
+    // run a hello world test program
+    #[test]
+    fn test_hello_world() {
+        let prog_contents = "++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>.";
+        let mut program = BfProgram::new("hello_world.bf", prog_contents).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut program, None, false).unwrap();
+
+        let mut input_cursor: Cursor<[u8; 10]> = Cursor::new([0; 10]);
+        let mut output_cursor: Cursor<[u8; 15]> = Cursor::new([0; 15]);
+
+        vm.interpret(&mut input_cursor, &mut output_cursor).unwrap();
+
+        let expected = [
+            b'H', b'e', b'l', b'l', b'o', b' ', b'W', b'o', b'r', b'l', b'd', b'!', b'\n', 0, 0,
+        ];
+        let actual = output_cursor.into_inner();
+        assert_eq!(expected, actual);
     }
 }

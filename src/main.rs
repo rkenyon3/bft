@@ -32,7 +32,9 @@ fn run_bft(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     let mut bf_interpreter: VirtualMachine<u8> =
         VirtualMachine::new(&mut bf_program, args.cells, args.extensible)?;
 
-    bf_interpreter.interpret(stdin(), stdout())?;
+    let mut input = stdin();
+    let mut output = stdout();
+    bf_interpreter.interpret(&mut input, &mut output)?;
 
     Ok(())
 }
