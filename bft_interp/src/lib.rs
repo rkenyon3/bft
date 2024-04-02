@@ -62,31 +62,28 @@ where
     ///# use bft_interp::VirtualMachine;
     ///# use std::num::NonZeroUsize;
     ///#
-    /// let mut bf_program = BfProgram::new("my_file.bf",".>.>+++");
+    /// let mut bf_program = BfProgram::new("my_file.bf",".>.>+++")?;
     ///
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(50000).unwrap());
-    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(bf_program, tape_size, true);
+    /// let bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
     ///#
     ///# Ok(())
     ///# }
     /// ```
     pub fn new(
-        program: &'a mut BfProgram,
+        program: &'a BfProgram,
         tape_size: Option<NonZeroUsize>,
         tape_can_grow: bool,
-    ) -> Result<Self, String> {
+    ) -> Self {
         let tape_size = tape_size.map(NonZeroUsize::get).unwrap_or(30_000);
 
-        // enforce analysing the program, since we need the jump map
-        program.analyse_program()?;
-
-        Ok(Self {
+        Self {
             cells: vec![T::default(); tape_size],
             head: 0,
             tape_can_grow,
             program,
             program_counter: 0,
-        })
+        }
     }
 
     /// Interpret the program
@@ -96,12 +93,13 @@ where
     ///# use bft_types::BfProgram;
     ///# use bft_interp::VirtualMachine;
     ///# use std::num::NonZeroUsize;
+    ///# use std::io::{stdin, stdout};
     ///#
-    /// let mut bf_program = BfProgram::new("my_file.bf",".>.>+++");
+    /// let mut bf_program = BfProgram::new("my_file.bf",".>.>+++")?;
     ///
     /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(10000).unwrap());
-    /// let mut bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&mut bf_program, tape_size, true)?;
-    /// bf_interpreter.interpret_program()?;
+    /// let mut bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
+    /// bf_interpreter.interpret(&mut stdin(), &mut stdout())?;
     ///#
     ///# Ok(())
     ///# }
@@ -135,8 +133,7 @@ where
 
             Ok(self.program_counter + 1)
         } else {
-            let bad_instruction =
-                self.program.localised_instructions()[self.program_counter].clone();
+            let bad_instruction = self.program.localised_instructions()[self.program_counter];
             Err(VMError::HeadUnderrun(bad_instruction))
         }
     }
@@ -152,8 +149,7 @@ where
             if self.tape_can_grow {
                 self.cells.push(T::default());
             } else {
-                let bad_instruction =
-                    self.program.localised_instructions()[self.program_counter].clone();
+                let bad_instruction = self.program.localised_instructions()[self.program_counter];
                 return Err(VMError::HeadOverrun(bad_instruction));
             }
         }
@@ -182,8 +178,7 @@ where
                 Ok(self.program_counter + 1)
             }
             Err(error) => {
-                let bad_instruction =
-                    self.program.localised_instructions()[self.program_counter].clone();
+                let bad_instruction = self.program.localised_instructions()[self.program_counter];
                 Err(VMError::from((bad_instruction, error)))
             }
         }
@@ -196,8 +191,7 @@ where
             Ok(_) => Ok(self.program_counter + 1),
 
             Err(error) => {
-                let bad_instruction =
-                    self.program.localised_instructions()[self.program_counter].clone();
+                let bad_instruction = self.program.localised_instructions()[self.program_counter];
                 Err(VMError::from((bad_instruction, error)))
             }
         }
@@ -216,7 +210,7 @@ where
             }
             // If this ever gets spat out, something has gone very wrong
             None => Err(VMError::UnmappedJump(
-                self.program.localised_instructions()[self.program_counter].clone(),
+                self.program.localised_instructions()[self.program_counter],
             )),
         }
     }
@@ -234,7 +228,7 @@ where
             }
             // If this ever gets spat out, something has gone very wrong
             None => Err(VMError::UnmappedJump(
-                self.program.localised_instructions()[self.program_counter].clone(),
+                self.program.localised_instructions()[self.program_counter],
             )),
         }
     }
@@ -342,14 +336,13 @@ mod tests {
         let mut placeholder_program = make_placeholder_program();
         let test_program = placeholder_program.clone();
         let tape_size = Some(NonZeroUsize::new(10_000).unwrap());
-        let vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut placeholder_program, tape_size, true).unwrap();
+        let vm: VirtualMachine<u8> = VirtualMachine::new(&mut placeholder_program, tape_size, true);
 
         assert_eq!(vm.cells.len(), 10_000);
         assert_eq!(vm.head, 0);
         assert!(vm.tape_can_grow);
         assert_eq!(vm.program_counter, 0);
-        assert_eq!(vm.program, &test_program);
+        assert_eq!(*vm.program, test_program);
     }
 
     // Does creating a VM with a default tape size work?
@@ -357,8 +350,7 @@ mod tests {
     fn test_create_vm_default_params() {
         let mut placeholder_program = make_placeholder_program();
 
-        let vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut placeholder_program, None, true).unwrap();
+        let vm: VirtualMachine<u8> = VirtualMachine::new(&mut placeholder_program, None, true);
 
         assert_eq!(vm.cells.len(), 30_000);
     }
@@ -367,8 +359,7 @@ mod tests {
     #[test]
     fn test_move_head_left_extensible_good() {
         let mut test_program = make_placeholder_program();
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, None, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, true);
         vm.head = 5;
 
         let result = vm.move_head_left();
@@ -383,8 +374,7 @@ mod tests {
         let mut test_program = make_placeholder_program();
         let bad_instruction = test_program.localised_instructions()[0].clone();
 
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, None, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, true);
 
         let result = vm.move_head_left();
         let expected_error: Result<usize, VMError> = Err(VMError::HeadUnderrun(bad_instruction));
@@ -398,8 +388,7 @@ mod tests {
     fn test_move_head_right_extensible_good() {
         let mut test_program = make_placeholder_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, tape_len, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, tape_len, true);
 
         let result = vm.move_head_right();
 
@@ -411,8 +400,7 @@ mod tests {
     #[test]
     fn test_move_head_right_fixed_good() {
         let mut test_program = make_placeholder_program();
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false);
 
         let result = vm.move_head_right();
 
@@ -426,8 +414,7 @@ mod tests {
         let mut test_program = make_placeholder_program();
         let bad_instruction = test_program.localised_instructions()[0].clone();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, tape_len, false).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, tape_len, false);
         vm.head = 999;
 
         let result = vm.move_head_right();
@@ -442,8 +429,7 @@ mod tests {
     fn test_auto_tape_extension() {
         let mut test_program = make_placeholder_program();
         let tape_len = Some(NonZeroUsize::new(1000).unwrap());
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, tape_len, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, tape_len, true);
 
         vm.head = 999;
 
@@ -458,8 +444,7 @@ mod tests {
     #[test]
     fn test_u8_increment_no_wrap() {
         let mut test_program = make_placeholder_program();
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false);
 
         vm.cells[0] = 10;
         let _ = vm.increment_cell();
@@ -471,8 +456,7 @@ mod tests {
     #[test]
     fn test_u8_increment_wrap() {
         let mut test_program = make_placeholder_program();
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false);
 
         vm.cells[0] = u8::MAX;
         let _ = vm.increment_cell();
@@ -483,8 +467,7 @@ mod tests {
     #[test]
     fn test_u8_decrement_no_wrap() {
         let mut test_program = make_placeholder_program();
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false);
 
         vm.cells[0] = 10;
         let _ = vm.decrement_cell();
@@ -496,8 +479,7 @@ mod tests {
     #[test]
     fn test_u8_decrement_wrap() {
         let mut test_program = make_placeholder_program();
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false);
 
         vm.cells[0] = u8::MIN;
         let _ = vm.decrement_cell();
@@ -509,8 +491,7 @@ mod tests {
     #[test]
     fn test_read() {
         let mut test_program = make_placeholder_program();
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false);
         let mut cursor = std::io::Cursor::new(vec![1, 2, 3]);
 
         let result = vm.read_value(&mut cursor);
@@ -523,8 +504,7 @@ mod tests {
     #[test]
     fn test_read_bad() {
         let mut test_program = make_placeholder_program();
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false);
         let mut cursor = std::io::Cursor::new([0; 0]); // zero-length buffer to break the thing
 
         let result = vm.read_value(&mut cursor);
@@ -536,8 +516,7 @@ mod tests {
     #[test]
     fn test_write() {
         let mut test_program = make_placeholder_program();
-        let mut vm: VirtualMachine<u8> =
-            VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false);
         let buf: Vec<u8> = vec![0; 10];
         let mut cursor = std::io::Cursor::new(buf);
 
@@ -553,7 +532,7 @@ mod tests {
     #[test]
     fn test_write_bad() {
         let mut test_program = make_placeholder_program();
-        let vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false).unwrap();
+        let vm: VirtualMachine<u8> = VirtualMachine::new(&mut test_program, None, false);
         let mut cursor = std::io::Cursor::new([0; 0]);
 
         let result = vm.print_value(&mut cursor);
@@ -571,7 +550,7 @@ mod tests {
     #[test]
     fn test_forward_jump_cell_zero() {
         let mut prog = jumps_test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true);
 
         vm.cells[0].set_value(0);
         vm.program_counter = 0;
@@ -585,7 +564,7 @@ mod tests {
     #[test]
     fn test_forward_jump_cell_nonzero() {
         let mut prog = jumps_test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true);
 
         vm.cells[0].set_value(7);
         vm.program_counter = 0;
@@ -599,7 +578,7 @@ mod tests {
     #[test]
     fn test_backward_jump_cell_zero() {
         let mut prog = jumps_test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true);
 
         vm.cells[0].set_value(0);
         vm.program_counter = 3;
@@ -613,7 +592,7 @@ mod tests {
     #[test]
     fn test_backward_jump_cell_nonzero() {
         let mut prog = jumps_test_program();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut prog, None, true);
 
         vm.cells[0].set_value(7);
         vm.program_counter = 3;
@@ -628,7 +607,7 @@ mod tests {
     fn test_hello_world() {
         let prog_contents = "++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>.";
         let mut program = BfProgram::new("hello_world.bf", prog_contents).unwrap();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut program, None, false).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut program, None, false);
 
         let mut input_cursor: Cursor<[u8; 10]> = Cursor::new([0; 10]);
         let mut output_cursor: Cursor<[u8; 15]> = Cursor::new([0; 15]);

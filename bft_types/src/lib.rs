@@ -75,7 +75,7 @@ impl Display for Instruction {
 
 /// A single program [Instruction] with the line and column number it originally appeared on. Line
 /// and column numbers are 1-indexed
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct LocalisedInstruction {
     /// The type of operation this instruction represents
     instruction: Instruction,
@@ -225,6 +225,10 @@ impl BfProgram {
     ///# }
     /// ```
     pub fn analyse_program(&mut self) -> Result<(), String> {
+        // Ensure we don't double the jump map if analyse gets called twice.
+        // Might be better as a flag in the struct?
+        self.jump_map.clear();
+
         let mut jump_instructions = Vec::<(usize, &LocalisedInstruction)>::new();
 
         for (program_index, program_instruction) in self.instructions.iter().enumerate() {

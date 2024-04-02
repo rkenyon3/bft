@@ -10,10 +10,7 @@
 
 mod cli;
 
-use std::{
-    io::{Write},
-    process::ExitCode,
-};
+use std::{io::Write, process::ExitCode};
 
 use bft_interp::VirtualMachine;
 use bft_types::BfProgram;
@@ -66,10 +63,10 @@ impl<T: Write> Drop for WriterWithTrailingNewline<T> {
 /// run_bft(&args)?;
 ///```
 fn run_bft(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
-    let mut bf_program = BfProgram::from_file(&args.program)?;
+    let bf_program = BfProgram::from_file(&args.program)?;
 
     let mut bf_interpreter: VirtualMachine<u8> =
-        VirtualMachine::new(&mut bf_program, args.cells, args.extensible)?;
+        VirtualMachine::new(&bf_program, args.cells, args.extensible);
 
     let mut input = stdin();
     let mut output = WriterWithTrailingNewline::new(stdout());
