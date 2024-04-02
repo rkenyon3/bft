@@ -130,6 +130,7 @@ where
     /// Move the head one cell towards the left (start) of the tape
     fn move_head_left(&mut self) -> Result<usize, VMError> {
         if self.head > 0 {
+            // note: went with this over checked_sub
             self.head -= 1;
 
             Ok(self.program_counter + 1)
