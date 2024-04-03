@@ -156,17 +156,29 @@ impl BfProgram {
     pub fn from_file<P: AsRef<Path>>(
         file_path: P,
     ) -> Result<BfProgram, Box<dyn std::error::Error>> {
-        // TODO: make this better
         let file_contents = fs::read_to_string(&file_path)?;
         Ok(Self::new(file_path, file_contents.as_str())?)
     }
 
     /// Construct a new BfProgram from a &str
+    ///
+    /// ``` 
+    ///# use bft_types::BfProgram;
+    ///# use std::path::PathBuf;
+    ///# fn main() -> Result<(),Box<dyn std::error::Error>>{
+    ///#
+    ///  let bf_file = PathBuf::from("my_bf_program.bf");
+    ///  let program_content = "[some bf code]++++.+++>[-],";
+    /// 
+    ///  let my_bf_program = BfProgram::new(bf_file, program_content);
+    ///# 
+    ///# Ok(())
+    ///# }
+    /// ```
     pub fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Result<BfProgram, String> {
         let mut instructions: Vec<LocalisedInstruction> = Vec::new();
         let jump_map = Vec::new();
 
-        // TODO: see if this can be shortened
         for (line_number, file_line) in file_contents.lines().enumerate() {
             for (col_number, character) in file_line.chars().enumerate() {
                 match Instruction::from_char(character) {
@@ -203,32 +215,14 @@ impl BfProgram {
         &self.instructions
     }
 
-    /// The vector of indexes '[' and ']' may jump to
-    pub fn jump_map(&self) -> &Vec<Option<usize>> {
+    /// Given the index of an instruction in the program, get the index of the
+    /// counterpart jump ('[' and ']')
+    pub fn jump_index(&self, program_index: usize) -> Option<usize> {
         &self.jump_map
     }
 
-    /// Analyse the program to ensure that it is syntactically valid
-    ///
-    /// ```no_run
-    ///# use bft_types::BfProgram;
-    ///# use std::path::PathBuf;
-    ///# fn main() -> Result<(), Box<dyn std::error::Error>>{
-    ///#   
-    ///  let bf_file = PathBuf::from("my_bf_program.bf");
-    ///
-    ///  let mut my_bf_program = BfProgram::from_file(bf_file)?;
-    ///
-    ///  my_bf_program.analyse_program()?;
-    ///
-    ///# Ok(())
-    ///# }
-    /// ```
-    pub fn analyse_program(&mut self) -> Result<(), String> {
-        // Ensure we don't double the jump map if analyse gets called twice.
-        // Might be better as a flag in the struct?
-        self.jump_map.clear();
-
+    /// Analyse the program to ensure that it is syntactically valid, and record where the jumps map to.
+    fn analyse_program(&mut self) -> Result<(), String> {
         let mut jump_instructions = Vec::<(usize, &LocalisedInstruction)>::new();
 
         for (program_index, program_instruction) in self.instructions.iter().enumerate() {
@@ -274,7 +268,6 @@ impl BfProgram {
     }
 }
 
-// TODO: find out why cargo test --all from ../../.. isn't runnning these tests :(
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -299,8 +292,6 @@ mod tests {
     }
 
     /// Check that a program can be constructed and records line and column numbers correctly
-    // TODO: make this not rely on relative files.
-    // see https://github.com/rkenyon3/bft/pull/2#discussion_r1512435535
     #[test]
     fn parse_program() {
         let filename = Path::new("test_file.bf");

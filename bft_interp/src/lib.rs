@@ -4,25 +4,30 @@
 //! [BfProgram] it was given.
 
 use std::{
-    fmt::Display,
     io::{Read, Write},
     num::NonZeroUsize,
 };
+use thiserror::Error;
 
 use bft_types::{BfProgram, Instruction, LocalisedInstruction};
 
 /// Error types that the [VirtualMachine] can emit
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Error)]
 pub enum VMError {
     /// The head ran off the start of the tape
+    #[error("Head underrun error occured at line {} column {}",.0.line_num(), .0.column_num())]
     HeadUnderrun(LocalisedInstruction),
     /// The head ran off the end of the (non-auto-extending) tape
+    #[error("Head overrun error occured at line {} column {}",.0.line_num(), .0.column_num())]
     HeadOverrun(LocalisedInstruction),
     /// Reading a byte from stdio went bloop
+    #[error("Read error occured at line {} column {}: {}",.0.line_num(), .0.column_num(), .1)]
     ReadError(LocalisedInstruction, String),
     /// Writing a byte from stdio went bloop
+    #[error("Write error occured at line {} column {}: {}",.0.line_num(), .0.column_num(), .1)]
     WriteError(LocalisedInstruction, String),
     /// Program contained a jump instruction with no mapping
+    #[error("Unmapped jump error occured at line {} column {}",.0.line_num(), .0.column_num())]
     UnmappedJump(LocalisedInstruction),
 }
 
@@ -253,58 +258,6 @@ impl CellKind for u8 {
 
     fn is_zero(&self) -> bool {
         *self == 0
-    }
-}
-
-impl std::error::Error for VMError {}
-
-// TODO: consider replacing this with "thiserror"
-impl Display for VMError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::HeadOverrun(program_instruction) => {
-                write!(
-                    f,
-                    "Head Overrun Error occured at line {} column {}",
-                    program_instruction.line_num(),
-                    program_instruction.column_num()
-                )
-            }
-            Self::HeadUnderrun(program_instruction) => {
-                write!(
-                    f,
-                    "Head Underrun Error occured at line {} column {}",
-                    program_instruction.line_num(),
-                    program_instruction.column_num()
-                )
-            }
-            Self::ReadError(program_instruction, error) => {
-                write!(
-                    f,
-                    "Read Error occured at line {} column {}: {}",
-                    program_instruction.line_num(),
-                    program_instruction.column_num(),
-                    error
-                )
-            }
-            Self::WriteError(program_instruction, error) => {
-                write!(
-                    f,
-                    "Write Error occured at line {} column {}: {}",
-                    program_instruction.line_num(),
-                    program_instruction.column_num(),
-                    error
-                )
-            }
-            Self::UnmappedJump(program_instruction) => {
-                write!(
-                    f,
-                    "Head Underrun Error occured at line {} column {}",
-                    program_instruction.line_num(),
-                    program_instruction.column_num()
-                )
-            }
-        }
     }
 }
 
