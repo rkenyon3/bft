@@ -7,5 +7,4 @@ edition = "2021"
 
 [dependencies]
 bft_types = { path = "../bft_types" }
-rstest = "0.18.2"
 thiserror = "1.0.58"

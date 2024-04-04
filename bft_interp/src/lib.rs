@@ -26,9 +26,6 @@ pub enum VMError {
     /// Writing a byte from stdio went bloop
     #[error("Write error occured at line {} column {}: {}",.0.line_num(), .0.column_num(), .1)]
     WriteError(LocalisedInstruction, String),
-    /// Program contained a jump instruction with no mapping
-    #[error("Unmapped jump error occured at line {} column {}",.0.line_num(), .0.column_num())]
-    UnmappedJump(LocalisedInstruction),
 }
 
 /// Represents a machine with a memory tape of cells. Accepts a type T for the tape
@@ -206,36 +203,20 @@ where
     /// If the cell is zero, return the index of the instruction after the matching ].
     /// If the cell is not zero, return the index of the next instruction after this one.
     fn conditional_jump_forward(&self) -> Result<usize, VMError> {
-        match self.program.jump_map()[self.program_counter] {
-            Some(jump_index) => {
-                if self.cells[self.head].is_zero() {
-                    return Ok(jump_index);
-                }
-                Ok(self.program_counter + 1)
-            }
-            // If this ever gets spat out, something has gone very wrong
-            None => Err(VMError::UnmappedJump(
-                self.program.localised_instructions()[self.program_counter],
-            )),
+        if self.cells[self.head].is_zero() {
+            return Ok(self.program.jump_target(self.program_counter));
         }
+        Ok(self.program_counter + 1)
     }
 
     /// Get the next program instruction index based on the value of the cell under the head.
     /// If the cell is zero, return the index of the next instruction after this one.
     /// If the cell is not zero, return the index of the instruction after the matching [.
     fn conditional_jump_backward(&self) -> Result<usize, VMError> {
-        match self.program.jump_map()[self.program_counter] {
-            Some(jump_index) => {
-                if self.cells[self.head].is_zero() {
-                    return Ok(self.program_counter + 1);
-                }
-                Ok(jump_index)
-            }
-            // If this ever gets spat out, something has gone very wrong
-            None => Err(VMError::UnmappedJump(
-                self.program.localised_instructions()[self.program_counter],
-            )),
+        if self.cells[self.head].is_zero() {
+            return Ok(self.program_counter + 1);
         }
+        Ok(self.program.jump_target(self.program_counter))
     }
 }
 

@@ -162,16 +162,16 @@ impl BfProgram {
 
     /// Construct a new BfProgram from a &str
     ///
-    /// ``` 
+    /// ```
     ///# use bft_types::BfProgram;
     ///# use std::path::PathBuf;
     ///# fn main() -> Result<(),Box<dyn std::error::Error>>{
     ///#
     ///  let bf_file = PathBuf::from("my_bf_program.bf");
     ///  let program_content = "[some bf code]++++.+++>[-],";
-    /// 
+    ///
     ///  let my_bf_program = BfProgram::new(bf_file, program_content);
-    ///# 
+    ///#
     ///# Ok(())
     ///# }
     /// ```
@@ -217,8 +217,11 @@ impl BfProgram {
 
     /// Given the index of an instruction in the program, get the index of the
     /// counterpart jump ('[' and ']')
-    pub fn jump_index(&self, program_index: usize) -> Option<usize> {
-        &self.jump_map
+    pub fn jump_target(&self, program_index: usize) -> usize {
+        match &self.jump_map[program_index] {
+            Some(target) => *target,
+            None => 0,
+        }
     }
 
     /// Analyse the program to ensure that it is syntactically valid, and record where the jumps map to.

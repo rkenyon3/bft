@@ -5,7 +5,7 @@
 //! The virtual machine contains a tape of cells that can be under a read/write head. The size of
 //! this tape may be specified as --cells cell_count, or will default to 30,000.
 //!
-//! The virtual machine iNput and output may be from stdin and stdout, or be specified as files
+//! The virtual machine input and output may be from stdin and stdout, or be specified as files
 //! using --input file_name and --output file_name
 
 mod cli;
@@ -19,6 +19,8 @@ use std::io::{stdin, stdout};
 
 use cli::Args;
 
+/// Writer that ensures the output that it writes has a newline at the end.
+/// If the program doesn't produce one, this will add it.
 struct WriterWithTrailingNewline<T: Write> {
     inner_writer: T,
     last_byte: u8,
@@ -38,7 +40,8 @@ impl<T: Write> Write for WriterWithTrailingNewline<T> {
         if let Some(last_byte) = buf.last() {
             self.last_byte = *last_byte;
         }
-        self.inner_writer.write(buf)
+        self.inner_writer.write_all(buf)?;
+        Ok(buf.len())
     }
 
     fn flush(&mut self) -> std::io::Result<()> {
@@ -49,8 +52,7 @@ impl<T: Write> Write for WriterWithTrailingNewline<T> {
 impl<T: Write> Drop for WriterWithTrailingNewline<T> {
     fn drop(&mut self) {
         if self.last_byte != b'\n' {
-            let buf = [b'\n'];
-            let _ = self.inner_writer.write(&buf);
+            writeln!(self.inner_writer).expect("Failed to write newline");
         }
     }
 }
@@ -86,5 +88,37 @@ fn main() -> std::process::ExitCode {
             println!("Error: {}", e);
             ExitCode::FAILURE
         }
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;    
+    use std::io::Cursor;
+
+    #[test]
+    fn test_output_with_newline(){
+        let prog_contents = ",."; // simply take one byte and echo it back
+        let mut program = BfProgram::new("echo.bf", prog_contents).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut program, None, false);
+
+        let mut input_cursor = Cursor::new([b'A', b'\n']);
+        let mut output_cursor = Cursor::new([0; 3]);
+        {
+            let mut output_writer = WriterWithTrailingNewline::new(output_cursor);
+        
+        let _ = vm.interpret(&mut input_cursor, &mut output_writer).unwrap();
+        }
+        let expected = [
+            b'A', b'\n', 0,
+        ];
+        let actual = output_cursor.into_inner();
+        assert_eq!(expected, actual);
+    }
+
+    #[test]
+    fn test_xmas(){
+
     }
 }
