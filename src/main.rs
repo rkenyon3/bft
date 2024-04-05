@@ -21,13 +21,13 @@ use cli::Args;
 
 /// Writer that ensures the output that it writes has a newline at the end.
 /// If the program doesn't produce one, this will add it.
-struct WriterWithTrailingNewline<T: Write> {
-    inner_writer: T,
+struct WriterWithTrailingNewline<'a, T: Write> {
+    inner_writer: &'a mut T,
     last_byte: u8,
 }
 
-impl<T: Write> WriterWithTrailingNewline<T> {
-    fn new(inner_writer: T) -> Self {
+impl<'a, T: Write> WriterWithTrailingNewline<'a, T> { 
+    fn new(inner_writer: &'a mut T) -> Self {
         Self {
             inner_writer,
             last_byte: 0,
@@ -35,7 +35,7 @@ impl<T: Write> WriterWithTrailingNewline<T> {
     }
 }
 
-impl<T: Write> Write for WriterWithTrailingNewline<T> {
+impl<'a, T: Write> Write for WriterWithTrailingNewline<'a, T> {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         if let Some(last_byte) = buf.last() {
             self.last_byte = *last_byte;
@@ -49,7 +49,7 @@ impl<T: Write> Write for WriterWithTrailingNewline<T> {
     }
 }
 
-impl<T: Write> Drop for WriterWithTrailingNewline<T> {
+impl<'a, T: Write> Drop for WriterWithTrailingNewline<'a, T> {
     fn drop(&mut self) {
         if self.last_byte != b'\n' {
             writeln!(self.inner_writer).expect("Failed to write newline");
@@ -71,8 +71,9 @@ fn run_bft(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
         VirtualMachine::new(&bf_program, args.cells, args.extensible);
 
     let mut input = stdin();
-    let mut output = WriterWithTrailingNewline::new(stdout());
-    bf_interpreter.interpret(&mut input, &mut output)?;
+    let mut output = stdout();
+    let mut output_with_newline = WriterWithTrailingNewline::new(&mut output);
+    bf_interpreter.interpret(&mut input, &mut output_with_newline)?;
 
     Ok(())
 }
@@ -91,34 +92,52 @@ fn main() -> std::process::ExitCode {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
-    use super::*;    
+    use super::*;
     use std::io::Cursor;
 
     #[test]
-    fn test_output_with_newline(){
-        let prog_contents = ",."; // simply take one byte and echo it back
+    fn test_output_with_newline() {
+        let prog_contents = ",.,."; // simply take one byte and echo it back
         let mut program = BfProgram::new("echo.bf", prog_contents).unwrap();
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut program, None, false);
 
         let mut input_cursor = Cursor::new([b'A', b'\n']);
         let mut output_cursor = Cursor::new([0; 3]);
+
+        // put the output_writer and vm run in a block so the output_writer is dropped at the end
+        // and we can get at the output_cursor
         {
-            let mut output_writer = WriterWithTrailingNewline::new(output_cursor);
-        
-        let _ = vm.interpret(&mut input_cursor, &mut output_writer).unwrap();
+            let mut output_writer = WriterWithTrailingNewline::new(&mut output_cursor);
+
+            let _ = vm.interpret(&mut input_cursor, &mut output_writer).unwrap();
         }
-        let expected = [
-            b'A', b'\n', 0,
-        ];
+
+        let expected = [b'A', b'\n', 0];
         let actual = output_cursor.into_inner();
         assert_eq!(expected, actual);
     }
 
     #[test]
-    fn test_xmas(){
+    fn test_output_without_newline() {
+        let prog_contents = ",.,."; // simply take one byte and echo it back
+        let mut program = BfProgram::new("echo.bf", prog_contents).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut program, None, false);
 
+        let mut input_cursor = Cursor::new([b'A', b'B']);
+        let mut output_cursor = Cursor::new([0; 3]);
+
+        // put the output_writer and vm run in a block so the output_writer is dropped at the end
+        // and we can get at the output_cursor
+        {
+            let mut output_writer = WriterWithTrailingNewline::new(&mut output_cursor);
+
+            let _ = vm.interpret(&mut input_cursor, &mut output_writer).unwrap();
+        }
+
+        let expected = [b'A', b'B', b'\n'];
+        let actual = output_cursor.into_inner();
+        assert_eq!(expected, actual);
     }
 }
