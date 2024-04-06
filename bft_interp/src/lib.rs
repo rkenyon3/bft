@@ -11,24 +11,26 @@ use thiserror::Error;
 
 use bft_types::{BfProgram, Instruction, LocalisedInstruction};
 
-/// Error types that the [VirtualMachine] can emit
+/// Error types that the [VirtualMachine] can emit. In all cases, the [VMError] includes details of
+/// the [LocalisedInstruction] that caused it.
 #[derive(Debug, PartialEq, Eq, Error)]
 pub enum VMError {
-    /// The head ran off the start of the tape
+    /// The head ran off the start of the tape. Note that the tape may never be extended at the start.
     #[error("Head underrun error occured at line {} column {}",.0.line_num(), .0.column_num())]
     HeadUnderrun(LocalisedInstruction),
-    /// The head ran off the end of the (non-auto-extending) tape
+    /// The head ran off the end of the (non-auto-extending) tape.
     #[error("Head overrun error occured at line {} column {}",.0.line_num(), .0.column_num())]
     HeadOverrun(LocalisedInstruction),
-    /// Reading a byte from stdio went bloop
+    /// Reading a byte from stdio failed. The text of the underlying IO error is included.
     #[error("Read error occured at line {} column {}: {}",.0.line_num(), .0.column_num(), .1)]
     ReadError(LocalisedInstruction, String),
-    /// Writing a byte from stdio went bloop
+    /// Writing a byte from stdio failed. The text of the underlying IO error is included.
     #[error("Write error occured at line {} column {}: {}",.0.line_num(), .0.column_num(), .1)]
     WriteError(LocalisedInstruction, String),
 }
 
-/// Represents a machine with a memory tape of cells. Accepts a type T for the tape
+/// Represents a virtual machine with a memory tape of cells. Accepts a type T for the tape,
+/// provided [CellKind] is implemented for T
 #[derive(Debug)]
 pub struct VirtualMachine<'a, T> {
     cells: Vec<T>,
@@ -88,7 +90,7 @@ where
         }
     }
 
-    /// Interpret the program
+    /// Interprets the [BfProgram] the machine was instantiated with.
     ///
     /// ```
     ///# fn main() -> Result<(), Box<dyn std::error::Error>>{
@@ -99,8 +101,7 @@ where
     ///#
     /// let mut bf_program = BfProgram::new("my_file.bf",".>.>+++")?;
     ///
-    /// let tape_size: Option::<NonZeroUsize> = Some(NonZeroUsize::new(10000).unwrap());
-    /// let mut bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, tape_size, true);
+    /// let mut bf_interpreter: VirtualMachine<u8> = VirtualMachine::new(&bf_program, None, true);
     /// bf_interpreter.interpret(&mut stdin(), &mut stdout())?;
     ///#
     ///# Ok(())

@@ -108,14 +108,19 @@ impl LocalisedInstruction {
         }
     }
 
+    /// Get the inner [Instruction]
     pub fn instruction(&self) -> Instruction {
         self.instruction
     }
 
+    /// Get the human-readable (1-indexed) line number where this instruction appears in the
+    /// original program file
     pub fn line_num(&self) -> usize {
         self.line_num
     }
 
+    /// Get the human-readable (1-indexed) column number where this instruction appears in the
+    /// original program file
     pub fn column_num(&self) -> usize {
         self.column_num
     }
@@ -131,7 +136,7 @@ impl Display for LocalisedInstruction {
     }
 }
 
-/// Representation of a Brainfuck program, including it's name and a vector of Instructions
+/// Representation of a Brainfuck program, including its name and a vector of [LocalisedInstruction]s
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct BfProgram {
     /// Name of the file containing the original program
@@ -143,15 +148,18 @@ pub struct BfProgram {
 }
 
 impl BfProgram {
-    /// Attempt to load a valid Brainfuck program from the specified file path.
+    /// Attempt to load a valid Brainfuck program from the specified file path. Calls
+    /// [BfProgram::new] internally.
     ///
     /// ```no_run
     ///# use bft_types::BfProgram;
     ///# use std::path::PathBuf;
-    ///#  
+    ///# fn main() -> Result<(), Box<dyn std::error::Error>>{
     ///  let bf_file = PathBuf::from("my_bf_program.bf");
     ///
-    ///  let my_bf_program = BfProgram::from_file(bf_file);
+    ///  let my_bf_program = BfProgram::from_file(bf_file)?;
+    ///# Ok(())
+    ///# }
     /// ```
     pub fn from_file<P: AsRef<Path>>(
         file_path: P,
@@ -160,7 +168,8 @@ impl BfProgram {
         Ok(Self::new(file_path, file_contents.as_str())?)
     }
 
-    /// Construct a new BfProgram from a &str
+    /// Construct a new [BfProgram] from a file path and a [str] that contains the program text.
+    /// The program is analysed to compute a jump map and ensure that the program jumps ('[' and ']') are balanced.
     ///
     /// ```
     ///# use bft_types::BfProgram;
@@ -170,7 +179,7 @@ impl BfProgram {
     ///  let bf_file = PathBuf::from("my_bf_program.bf");
     ///  let program_content = "[some bf code]++++.+++>[-],";
     ///
-    ///  let my_bf_program = BfProgram::new(bf_file, program_content);
+    ///  let my_bf_program: BfProgram = BfProgram::new(bf_file, program_content)?;
     ///#
     ///# Ok(())
     ///# }
@@ -206,17 +215,39 @@ impl BfProgram {
     }
 
     /// Get the name of the program
+    ///```
+    ///# use bft_types::BfProgram;
+    ///#
+    ///# let my_bf_program = BfProgram::new("filename.bf","program text ++++.").unwrap();
+    ///  let program_name = my_bf_program.name();
+    ///```
     pub fn name(&self) -> &Path {
         &self.name
     }
 
-    /// The instructions that make up this program
+    /// The [LocalisedInstruction]s that make up this program
+    ///```
+    ///# use bft_types::BfProgram;
+    ///#
+    ///# let my_bf_program = BfProgram::new("filename.bf","program text ++++.").unwrap();
+    ///  let program_instructions = my_bf_program.localised_instructions();
+    ///```  
     pub fn localised_instructions(&self) -> &[LocalisedInstruction] {
         &self.instructions
     }
 
     /// Given the index of an instruction in the program, get the index of the
     /// counterpart jump ('[' and ']')
+    ///```
+    ///# use bft_types::BfProgram;
+    ///# fn main() -> Result<(),Box<dyn std::error::Error>>{
+    ///  let my_bf_program = BfProgram::new("filename.bf","[program text] ++++.")?;
+    ///  let current_program_address = 0;
+    ///  let next_program_address = my_bf_program.jump_target(current_program_address);
+    ///  assert_eq!(next_program_address, 2);
+    ///# Ok(())
+    ///# }
+    ///```
     pub fn jump_target(&self, program_index: usize) -> usize {
         match &self.jump_map[program_index] {
             Some(target) => *target,

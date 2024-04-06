@@ -1,12 +1,11 @@
-//! Brainfuck Interpreter. This takes created a [BfProgram] from a file and runs it on a
-//! virtual machine. The program is first analysed to confirm that the jump commands ('[' and ']')
+//! Brainfuck Interpreter. Creates a [BfProgram] from a BrainFuck program file and runs it on a
+//! [VirtualMachine]. The program is first analysed to confirm that the jump commands ('[' and ']')
 //! are balanced.
 //!
-//! The virtual machine contains a tape of cells that can be under a read/write head. The size of
-//! this tape may be specified as --cells cell_count, or will default to 30,000.
+//! The virtual machine contains a tape of cells that can be moved under a read/write head. The
+//! size of this tape may be specified as --cells cell_count, or will default to 30,000.
 //!
-//! The virtual machine input and output may be from stdin and stdout, or be specified as files
-//! using --input file_name and --output file_name
+//! The virtual machine is connected to stdin and stdout
 
 mod cli;
 
@@ -19,14 +18,17 @@ use std::io::{stdin, stdout};
 
 use cli::Args;
 
-/// Writer that ensures the output that it writes has a newline at the end.
+/// Ensures the output that it writes has a newline at the end.
 /// If the program doesn't produce one, this will add it.
 struct WriterWithTrailingNewline<'a, T: Write> {
+    /// Anything implementing Write. All output will be passed to this.
     inner_writer: &'a mut T,
+    /// Records the last byte that was written after each write.
     last_byte: u8,
 }
 
-impl<'a, T: Write> WriterWithTrailingNewline<'a, T> { 
+impl<'a, T: Write> WriterWithTrailingNewline<'a, T> {
+    /// Creates a new instance of this struct.
     fn new(inner_writer: &'a mut T) -> Self {
         Self {
             inner_writer,
@@ -57,8 +59,7 @@ impl<'a, T: Write> Drop for WriterWithTrailingNewline<'a, T> {
     }
 }
 
-/// Analyse the program for validity, then construct a [VirtualMachine] and
-/// run it
+/// Create a [BfProgram] from the file specified, then construct a [VirtualMachine] and run it.
 ///```no_run
 /// let args = cli::Args::parse();
 ///
@@ -78,7 +79,7 @@ fn run_bft(args: &Args) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-/// Main function
+/// Main function. Returns a success code if everything worked, or an error and prints an error message if it didn't
 fn main() -> std::process::ExitCode {
     let args = cli::Args::parse();
 
