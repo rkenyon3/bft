@@ -75,7 +75,7 @@ impl Display for Instruction {
 
 /// A single program [Instruction] with the line and column number it originally appeared on. Line
 /// and column numbers are 1-indexed
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct LocalisedInstruction {
     /// The type of operation this instruction represents
     instruction: Instruction,
@@ -108,14 +108,19 @@ impl LocalisedInstruction {
         }
     }
 
+    /// Get the inner [Instruction]
     pub fn instruction(&self) -> Instruction {
         self.instruction
     }
 
+    /// Get the human-readable (1-indexed) line number where this instruction appears in the
+    /// original program file
     pub fn line_num(&self) -> usize {
         self.line_num
     }
 
+    /// Get the human-readable (1-indexed) column number where this instruction appears in the
+    /// original program file
     pub fn column_num(&self) -> usize {
         self.column_num
     }
@@ -131,7 +136,7 @@ impl Display for LocalisedInstruction {
     }
 }
 
-/// Representation of a Brainfuck program, including it's name and a vector of Instructions
+/// Representation of a Brainfuck program, including its name and a vector of [LocalisedInstruction]s
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct BfProgram {
     /// Name of the file containing the original program
@@ -143,30 +148,46 @@ pub struct BfProgram {
 }
 
 impl BfProgram {
-    /// Attempt to load a valid Brainfuck program from the specified file path.
+    /// Attempt to load a valid Brainfuck program from the specified file path. Calls
+    /// [BfProgram::new] internally.
     ///
     /// ```no_run
     ///# use bft_types::BfProgram;
     ///# use std::path::PathBuf;
-    ///#  
+    ///# fn main() -> Result<(), Box<dyn std::error::Error>>{
     ///  let bf_file = PathBuf::from("my_bf_program.bf");
     ///
-    ///  let my_bf_program = BfProgram::from_file(bf_file);
+    ///  let my_bf_program = BfProgram::from_file(bf_file)?;
+    ///# Ok(())
+    ///# }
     /// ```
     pub fn from_file<P: AsRef<Path>>(
         file_path: P,
     ) -> Result<BfProgram, Box<dyn std::error::Error>> {
-        // TODO: make this better
         let file_contents = fs::read_to_string(&file_path)?;
         Ok(Self::new(file_path, file_contents.as_str())?)
     }
 
-    /// Construct a new BfProgram from a &str
+    /// Construct a new [BfProgram] from a file path and a [str] that contains the program text.
+    /// The program is analysed to compute a jump map and ensure that the program jumps ('[' and ']') are balanced.
+    ///
+    /// ```
+    ///# use bft_types::BfProgram;
+    ///# use std::path::PathBuf;
+    ///# fn main() -> Result<(),Box<dyn std::error::Error>>{
+    ///#
+    ///  let bf_file = PathBuf::from("my_bf_program.bf");
+    ///  let program_content = "[some bf code]++++.+++>[-],";
+    ///
+    ///  let my_bf_program: BfProgram = BfProgram::new(bf_file, program_content)?;
+    ///#
+    ///# Ok(())
+    ///# }
+    /// ```
     pub fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Result<BfProgram, String> {
         let mut instructions: Vec<LocalisedInstruction> = Vec::new();
         let jump_map = Vec::new();
 
-        // TODO: see if this can be shortened
         for (line_number, file_line) in file_contents.lines().enumerate() {
             for (col_number, character) in file_line.chars().enumerate() {
                 match Instruction::from_char(character) {
@@ -194,49 +215,66 @@ impl BfProgram {
     }
 
     /// Get the name of the program
+    ///```
+    ///# use bft_types::BfProgram;
+    ///#
+    ///# let my_bf_program = BfProgram::new("filename.bf","program text ++++.").unwrap();
+    ///  let program_name = my_bf_program.name();
+    ///```
     pub fn name(&self) -> &Path {
         &self.name
     }
 
-    /// The instructions that make up this program
-    pub fn instructions(&self) -> &[LocalisedInstruction] {
+    /// The [LocalisedInstruction]s that make up this program
+    ///```
+    ///# use bft_types::BfProgram;
+    ///#
+    ///# let my_bf_program = BfProgram::new("filename.bf","program text ++++.").unwrap();
+    ///  let program_instructions = my_bf_program.localised_instructions();
+    ///```  
+    pub fn localised_instructions(&self) -> &[LocalisedInstruction] {
         &self.instructions
     }
 
-    /// Analyse the program to ensure that it is syntactically valid
-    ///
-    /// ```no_run
+    /// Given the index of an instruction in the program, get the index of the
+    /// counterpart jump ('[' and ']')
+    ///```
     ///# use bft_types::BfProgram;
-    ///# use std::path::PathBuf;
-    ///# fn main() -> Result<(), Box<dyn std::error::Error>>{
-    ///#   
-    ///  let bf_file = PathBuf::from("my_bf_program.bf");
-    ///
-    ///  let mut my_bf_program = BfProgram::from_file(bf_file)?;
-    ///
-    ///  my_bf_program.analyse_program()?;
-    ///
+    ///# fn main() -> Result<(),Box<dyn std::error::Error>>{
+    ///  let my_bf_program = BfProgram::new("filename.bf","[program text] ++++.")?;
+    ///  let current_program_address = 0;
+    ///  let next_program_address = my_bf_program.jump_target(current_program_address);
+    ///  assert_eq!(next_program_address, 2);
     ///# Ok(())
     ///# }
-    /// ```
-    pub fn analyse_program(&mut self) -> Result<(), String> {
+    ///```
+    pub fn jump_target(&self, program_index: usize) -> usize {
+        match &self.jump_map[program_index] {
+            Some(target) => *target,
+            None => 0,
+        }
+    }
+
+    /// Analyse the program to ensure that it is syntactically valid, and record where the jumps map to.
+    fn analyse_program(&mut self) -> Result<(), String> {
         let mut jump_instructions = Vec::<(usize, &LocalisedInstruction)>::new();
 
         for (program_index, program_instruction) in self.instructions.iter().enumerate() {
             // to begin with, store program_indexes and jump-forward instructuctions...
             if program_instruction.instruction == Instruction::ConditionalJumpForward {
                 jump_instructions.push((program_index, program_instruction));
-
+                self.jump_map.push(None); // push a placeholder
+            }
             // ...and pop them back off their vector as we find their matches.
             // If we can't pop the corresponding [, we've got unmatched jumps
-            } else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
+            else if program_instruction.instruction == Instruction::ConditionalJumpBackward {
                 match jump_instructions.pop() {
                     Some(popped_jump) => {
                         let counterpart_index = popped_jump.0;
-                        // add a new element pointing this jump back toward its counterpart ']'
-                        self.jump_map.push(Some(counterpart_index));
-                        // and just update the existing entry for the initial '['
-                        self.jump_map[counterpart_index] = Some(program_index);
+                        // add a new element pointing this jump back toward the next instruction after its counterpart ']'
+                        self.jump_map.push(Some(counterpart_index + 1));
+                        // and just update the existing entry for the initial '[' to point to the instruction after this one
+                        self.jump_map[counterpart_index] = Some(program_index + 1);
                     }
                     None => {
                         return Err(format!(
@@ -288,55 +326,60 @@ mod tests {
     }
 
     /// Check that a program can be constructed and records line and column numbers correctly
-    // TODO: make this not rely on relative files.
-    // see https://github.com/rkenyon3/bft/pull/2#discussion_r1512435535
     #[test]
     fn parse_program() {
         let filename = Path::new("test_file.bf");
-        let lines = "_<\n__<\n";
-        let placeholder_instruction_type = Instruction::from_char('<').unwrap(); // probably shouldn't use unwrap here but I'm getting fed up of this and it'll do for now
+        let lines = "..[<>]..[]..";
+        let expected_jump_map: Vec<Option<usize>> = vec![
+            None,
+            None,
+            Some(6),
+            None,
+            None,
+            Some(3),
+            None,
+            None,
+            Some(10),
+            Some(9),
+            None,
+            None,
+        ];
 
         let bf_program = BfProgram::new(filename, lines).unwrap();
 
         assert_eq!(bf_program.name(), filename);
-
-        let expected_instruction =
-            LocalisedInstruction::new(placeholder_instruction_type.clone(), 1, 2);
-        assert_eq!(bf_program.instructions.get(0), Some(&expected_instruction));
-
-        let expected_instruction =
-            LocalisedInstruction::new(placeholder_instruction_type.clone(), 2, 3);
-        assert_eq!(bf_program.instructions.get(1), Some(&expected_instruction));
+        assert_eq!(bf_program.jump_map, expected_jump_map);
     }
 
-    /// check that analysing a valid program works
-    #[test]
-    fn test_analyse_good() {
-        let filename = Path::new("test_file.bf");
-        let lines = "_>>[<\n].,,[<\n]";
-
-        let mut bf_program = BfProgram::new(filename, lines).unwrap();
-
-        let result = bf_program.analyse_program();
-        let expected = Ok(());
-
-        assert_eq!(result, expected);
-    }
-
-    /// check that analysing a valid program works
+    /// check that we find an unmatched [
     #[test]
     fn test_analyse_unmatched_open_square_bracket() {
         let filename = Path::new("test_file.bf");
         let lines = "_>>[<\n][[].,,<\n";
 
-        let mut bf_program = BfProgram::new(filename, lines).unwrap();
+        let result = BfProgram::new(filename, lines);
 
-        let result = bf_program.analyse_program();
         // Note: error message text matches the test program specifically
-        let expected_response = Err(String::from(
+        let expected_result = Err(String::from(
             "test_file.bf: Unmatched bracket on line 2, col 2",
         ));
 
-        assert_eq!(result, expected_response);
+        assert_eq!(result, expected_result);
+    }
+
+    /// check that we find an unmatched ]
+    #[test]
+    fn test_analyse_unmatched_close_square_bracket() {
+        let filename = Path::new("test_file.bf");
+        let lines = "_>>[<\n]].,,<\n";
+
+        let result = BfProgram::new(filename, lines);
+
+        // Note: error message text matches the test program specifically
+        let expected_result = Err(String::from(
+            "test_file.bf: Unmatched bracket on line 2, col 2",
+        ));
+
+        assert_eq!(result, expected_result);
     }
 }

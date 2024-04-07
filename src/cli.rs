@@ -1,4 +1,4 @@
-//! CLI interface arguments for the Brainfuck interpreter
+//! CLI arguments for the Brainfuck interpreter
 
 use std::num::NonZeroUsize;
 use std::path::PathBuf;
@@ -15,7 +15,7 @@ pub struct Args {
     #[arg(short, long)]
     pub cells: Option<NonZeroUsize>,
 
-    /// whether the tape can grow automatically
+    /// Controls whether the end of tape will be extended automatically
     #[arg(short, long)]
     pub extensible: bool,
 }
