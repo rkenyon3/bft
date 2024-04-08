@@ -101,8 +101,8 @@ mod tests {
     #[test]
     fn test_output_with_newline() {
         let prog_contents = ",.,."; // simply take one byte and echo it back
-        let mut program = BfProgram::new("echo.bf", prog_contents).unwrap();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut program, None, false);
+        let program = BfProgram::new("echo.bf", prog_contents).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&program, None, false);
 
         let mut input_cursor = Cursor::new([b'A', b'\n']);
         let mut output_cursor = Cursor::new([0; 3]);
@@ -112,7 +112,7 @@ mod tests {
         {
             let mut output_writer = WriterWithTrailingNewline::new(&mut output_cursor);
 
-            let _ = vm.interpret(&mut input_cursor, &mut output_writer).unwrap();
+            vm.interpret(&mut input_cursor, &mut output_writer).unwrap();
         }
 
         let expected = [b'A', b'\n', 0];
@@ -123,8 +123,8 @@ mod tests {
     #[test]
     fn test_output_without_newline() {
         let prog_contents = ",.,."; // simply take one byte and echo it back
-        let mut program = BfProgram::new("echo.bf", prog_contents).unwrap();
-        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&mut program, None, false);
+        let program = BfProgram::new("echo.bf", prog_contents).unwrap();
+        let mut vm: VirtualMachine<u8> = VirtualMachine::new(&program, None, false);
 
         let mut input_cursor = Cursor::new([b'A', b'B']);
         let mut output_cursor = Cursor::new([0; 3]);
@@ -134,7 +134,7 @@ mod tests {
         {
             let mut output_writer = WriterWithTrailingNewline::new(&mut output_cursor);
 
-            let _ = vm.interpret(&mut input_cursor, &mut output_writer).unwrap();
+            vm.interpret(&mut input_cursor, &mut output_writer).unwrap();
         }
 
         let expected = [b'A', b'B', b'\n'];
