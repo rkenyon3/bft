@@ -20,6 +20,7 @@ use cli::Args;
 
 /// Ensures the output that it writes has a newline at the end.
 /// If the program doesn't produce one, this will add it.
+// TODO: The type name here is a tad clunky, perhaps just "NewlineAdder" ?
 struct WriterWithTrailingNewline<'a, T: Write> {
     /// Anything implementing Write. All output will be passed to this.
     inner_writer: &'a mut T,
@@ -28,7 +29,15 @@ struct WriterWithTrailingNewline<'a, T: Write> {
 }
 
 impl<'a, T: Write> WriterWithTrailingNewline<'a, T> {
+    // TODO: These docs are sparse, lack example, and need DRYing out
     /// Creates a new instance of this struct.
+
+    // TODO: Maybe like this?
+    /// Wrap the `inner_writer` and ensure it terminates with a newline
+    ///
+    /// This writer wrappers the given writer, tracking when it writes
+    /// newlines out, and ensures that, on `drop()` the last character
+    /// written is always a newline.
     fn new(inner_writer: &'a mut T) -> Self {
         Self {
             inner_writer,

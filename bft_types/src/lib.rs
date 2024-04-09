@@ -143,6 +143,8 @@ pub struct BfProgram {
     name: PathBuf,
     /// A vector of instructions. Not sure how else to describe it
     instructions: Vec<LocalisedInstruction>,
+    // TODO: Why enable "failure" here, why not define what it means to "jump" for a
+    // non jump instruction (eg. either panic, or more usefully say zero or somesuch)
     /// Vector to record, for each instruction, the index of the counterpart jump (if any)
     jump_map: Vec<Option<usize>>,
 }
@@ -161,6 +163,7 @@ impl BfProgram {
     ///# Ok(())
     ///# }
     /// ```
+    // TODO: Libraries should never ever return `Box<dyn Error>` as their error kind
     pub fn from_file<P: AsRef<Path>>(
         file_path: P,
     ) -> Result<BfProgram, Box<dyn std::error::Error>> {
@@ -184,6 +187,7 @@ impl BfProgram {
     ///# Ok(())
     ///# }
     /// ```
+    // TODO: Libraries should never ever return `String` as their error kind, eww.
     pub fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Result<BfProgram, String> {
         let mut instructions: Vec<LocalisedInstruction> = Vec::new();
         let jump_map = Vec::new();
@@ -256,6 +260,7 @@ impl BfProgram {
     }
 
     /// Analyse the program to ensure that it is syntactically valid, and record where the jumps map to.
+    // TODO: Libraries should never ever return `String` as their error kind. eww.
     fn analyse_program(&mut self) -> Result<(), String> {
         let mut jump_instructions = Vec::<(usize, &LocalisedInstruction)>::new();
 

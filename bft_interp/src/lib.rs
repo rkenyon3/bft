@@ -14,6 +14,8 @@ use bft_types::{BfProgram, Instruction, LocalisedInstruction};
 /// Error types that the [VirtualMachine] can emit. In all cases, the [VMError] includes details of
 /// the [LocalisedInstruction] that caused it.
 #[derive(Debug, PartialEq, Eq, Error)]
+// TODO: There's a bit of ugly formatting here that `cargo fmt` can't fix, it can't
+// catch everything.
 pub enum VMError {
     /// The head ran off the start of the tape. Note that the tape may never be extended at the start.
     #[error("Head underrun error occured at line {} column {}",.0.line_num(), .0.column_num())]
@@ -23,9 +25,11 @@ pub enum VMError {
     HeadOverrun(LocalisedInstruction),
     /// Reading a byte from stdio failed. The text of the underlying IO error is included.
     #[error("Read error occured at line {} column {}: {}",.0.line_num(), .0.column_num(), .1)]
+    // TODO: Why is this not an IO Error?
     ReadError(LocalisedInstruction, String),
     /// Writing a byte from stdio failed. The text of the underlying IO error is included.
     #[error("Write error occured at line {} column {}: {}",.0.line_num(), .0.column_num(), .1)]
+    // TODO: Why is this not an IO Error?
     WriteError(LocalisedInstruction, String),
 }
 
@@ -79,6 +83,8 @@ where
         tape_size: Option<NonZeroUsize>,
         tape_can_grow: bool,
     ) -> Self {
+        // TODO: So close.  How about
+        // let tape_size = tape_size.map_or(30_000, NonZeroUsize::get);
         let tape_size = tape_size.map(NonZeroUsize::get).unwrap_or(30_000);
 
         Self {
@@ -113,6 +119,8 @@ where
         output: &mut impl Write,
     ) -> Result<(), VMError> {
         while self.program_counter < self.program.localised_instructions().len() {
+            // TODO: I'd be tempted to extract the instruction into a variable
+            // to reduce the complexity of the front end of the match expression.
             self.program_counter =
                 match self.program.localised_instructions()[self.program_counter].instruction() {
                     Instruction::MoveLeft => self.move_head_left()?,
@@ -190,6 +198,7 @@ where
     /// Print the value at head to the target output
     fn print_value(&self, output: &mut impl Write) -> Result<usize, VMError> {
         let output_buf = [self.cells[self.head].get_value()];
+        // TODO: Fix broken flush behaviour with .and_then(|_| output.flush())
         match output.write_all(&output_buf) {
             Ok(_) => Ok(self.program_counter + 1),
 
@@ -246,6 +255,7 @@ impl CellKind for u8 {
 impl From<(LocalisedInstruction, std::io::Error)> for VMError {
     fn from(value: (LocalisedInstruction, std::io::Error)) -> Self {
         let bad_instruction = value.0;
+        // TODO: This bit makes me sad.
         let error_msg = value.1.to_string();
         if bad_instruction.instruction() == Instruction::Input {
             VMError::ReadError(bad_instruction, error_msg)
