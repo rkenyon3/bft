@@ -190,14 +190,14 @@ where
     /// Print the value at head to the target output
     fn print_value(&self, output: &mut impl Write) -> Result<usize, VMError> {
         let output_buf = [self.cells[self.head].get_value()];
-        match output.write_all(&output_buf) {
-            Ok(_) => Ok(self.program_counter + 1),
-
-            Err(error) => {
+        output
+            .write_all(&output_buf)
+            .and_then(|_| output.flush())
+            .map(|_| &self.program_counter + 1)
+            .map_err(|error| {
                 let bad_instruction = self.program.localised_instructions()[self.program_counter];
-                Err(VMError::from((bad_instruction, error)))
-            }
-        }
+                VMError::from((bad_instruction, error))
+            })
     }
 
     /// Get the next program instruction index based on the value of the cell under the head.
