@@ -13,7 +13,7 @@ use bft_types::{BfProgram, Instruction, LocalisedInstruction};
 
 /// Error types that the [VirtualMachine] can emit. In all cases, the [VMError] includes details of
 /// the [LocalisedInstruction] that caused it.
-#[derive(Debug, PartialEq, Eq, Error)]
+#[derive(Debug, Error)]
 pub enum VMError {
     /// The head ran off the start of the tape. Note that the tape may never be extended at the start.
     #[error("Head underrun error occured at line {} column {}",.0.line_num(), .0.column_num())]
@@ -23,10 +23,10 @@ pub enum VMError {
     HeadOverrun(LocalisedInstruction),
     /// Reading a byte from stdio failed. The text of the underlying IO error is included.
     #[error("Read error occured at line {} column {}: {}",.0.line_num(), .0.column_num(), .1)]
-    ReadError(LocalisedInstruction, String),
+    ReadError(LocalisedInstruction, std::io::Error),
     /// Writing a byte from stdio failed. The text of the underlying IO error is included.
     #[error("Write error occured at line {} column {}: {}",.0.line_num(), .0.column_num(), .1)]
-    WriteError(LocalisedInstruction, String),
+    WriteError(LocalisedInstruction, std::io::Error),
 }
 
 /// Represents a virtual machine with a memory tape of cells. Accepts a type T for the tape,
@@ -246,20 +246,20 @@ impl CellKind for u8 {
 impl From<(LocalisedInstruction, std::io::Error)> for VMError {
     fn from(value: (LocalisedInstruction, std::io::Error)) -> Self {
         let bad_instruction = value.0;
-        let error_msg = value.1.to_string();
+        let io_err = value.1;
         if bad_instruction.instruction() == Instruction::Input {
-            VMError::ReadError(bad_instruction, error_msg)
+            VMError::ReadError(bad_instruction, io_err)
         } else {
-            VMError::WriteError(bad_instruction, error_msg)
+            VMError::WriteError(bad_instruction, io_err)
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::io::Cursor;
-
     use super::*;
+    use assert_matches::assert_matches;
+    use std::io::Cursor;
 
     fn make_placeholder_program() -> BfProgram {
         BfProgram::new("test_file.bf", ",.[test]+++.").unwrap()
@@ -312,10 +312,11 @@ mod tests {
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, true);
 
         let result = vm.move_head_left();
-        let expected_error: Result<usize, VMError> = Err(VMError::HeadUnderrun(bad_instruction));
 
-        assert!(result.is_err());
-        assert_eq!(result, expected_error);
+        assert_matches!(result, Err(VMError::HeadUnderrun(_)));
+        if let Some(VMError::HeadUnderrun(failure_instruction)) = result.err() {
+            assert_eq!(failure_instruction, bad_instruction);
+        }
     }
 
     // Does moving the head right on an extensible tape work when the head has space to move?
@@ -353,10 +354,11 @@ mod tests {
         vm.head = 999;
 
         let result = vm.move_head_right();
-        let expected_error: Result<usize, VMError> = Err(VMError::HeadOverrun(bad_instruction));
 
-        assert!(result.is_err());
-        assert_eq!(result, expected_error);
+        assert_matches!(result, Err(VMError::HeadOverrun(_)));
+        if let Some(VMError::HeadOverrun(failure_instruction)) = result.err() {
+            assert_eq!(failure_instruction, bad_instruction);
+        }
     }
 
     // Does moving the head right at the end of an extensible tape make the tape grow?
@@ -438,13 +440,13 @@ mod tests {
     // does reading error when the buffer has nothing to read
     #[test]
     fn test_read_bad() {
-        let test_program = make_placeholder_program();
+        let test_program = BfProgram::new("some_name.bf",",").unwrap();
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
         let mut cursor = std::io::Cursor::new([0; 0]); // zero-length buffer to break the thing
 
         let result = vm.read_value(&mut cursor);
 
-        assert!(result.is_err());
+        assert_matches!(result, Err(VMError::ReadError(_, _)))
     }
 
     // does writing a byte from a cell work?
@@ -466,13 +468,13 @@ mod tests {
     // does reading error correctly when the output has no space?
     #[test]
     fn test_write_bad() {
-        let test_program = make_placeholder_program();
+        let test_program = BfProgram::new("some_name.bf",".").unwrap();
         let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
         let mut cursor = std::io::Cursor::new([0; 0]);
 
         let result = vm.print_value(&mut cursor);
 
-        assert!(result.is_err());
+        assert_matches!(result, Err(VMError::WriteError(_, _)))
     }
 
     // Helper function for testing jumps

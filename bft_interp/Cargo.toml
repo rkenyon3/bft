@@ -8,3 +8,6 @@ edition = "2021"
 [dependencies]
 bft_types = { path = "../bft_types" }
 thiserror = "1.0.58"
+
+[dev-dependencies]
+assert_matches = "1.5.0"

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use thiserror::Error;
 
 /// Error types that the bft_types module can yeet out.
-#[derive(Debug, Error, PartialEq, Eq)]
+#[derive(Debug, Error)]
 pub enum BftTypeError {
     /// Something went wrong with file IO
     #[error("File IO error: {}", .0)]
@@ -14,13 +14,18 @@ pub enum BftTypeError {
 
     /// Unmatched '[' jumpinstruction in program
     #[error("Unmatched '[' jump instruction in {program_name} at line {}, column {}", .bad_instruction.line_num, .bad_instruction.column_num)]
-    UnmatchedForwardJump{program_name: PathBuf, bad_instruction: LocalisedInstruction},
+    UnmatchedForwardJump {
+        program_name: PathBuf,
+        bad_instruction: LocalisedInstruction,
+    },
 
     /// Unmatched ']' jumpinstruction in program
     #[error("Unmatched ']' jump instruction in {program_name} at line {}, column {}", .bad_instruction.line_num, .bad_instruction.column_num)]
-    UnmatchedBackwardJump{program_name: PathBuf, bad_instruction: LocalisedInstruction},
+    UnmatchedBackwardJump {
+        program_name: PathBuf,
+        bad_instruction: LocalisedInstruction,
+    },
 }
-
 
 /// Types of Brainfuck instructions
 #[derive(Debug, PartialEq, Clone, Eq, Copy)]
@@ -171,19 +176,18 @@ impl BfProgram {
     ///
     /// ```no_run
     ///# use bft_types::BfProgram;
+    ///# use bft_types::BftTypeError;
     ///# use std::path::PathBuf;
-    ///# fn main() -> Result<(), Box<dyn std::error::Error>>{
+    ///# fn main() -> Result<(), BftTypeError>{
     ///  let bf_file = PathBuf::from("my_bf_program.bf");
     ///
     ///  let my_bf_program = BfProgram::from_file(bf_file)?;
     ///# Ok(())
     ///# }
     /// ```
-    pub fn from_file<P: AsRef<Path>>(
-        file_path: P,
-    ) -> Result<BfProgram, BftTypeError> {
-        let file_contents = fs::read_to_string(&file_path).map_err(|e| BftTypeError::IoError(e))?;
-        Ok(Self::new(file_path, file_contents.as_str())?)
+    pub fn from_file<P: AsRef<Path>>(file_path: P) -> Result<BfProgram, BftTypeError> {
+        let file_contents = fs::read_to_string(&file_path).map_err(BftTypeError::IoError)?;
+        Self::new(file_path, file_contents.as_str())
     }
 
     /// Construct a new [BfProgram] from a file path and a [str] that contains the program text.
@@ -191,8 +195,9 @@ impl BfProgram {
     ///
     /// ```
     ///# use bft_types::BfProgram;
+    ///# use bft_types::BftTypeError;
     ///# use std::path::PathBuf;
-    ///# fn main() -> Result<(),Box<dyn std::error::Error>>{
+    ///# fn main() -> Result<(), BftTypeError>{
     ///#
     ///  let bf_file = PathBuf::from("my_bf_program.bf");
     ///  let program_content = "[some bf code]++++.+++>[-],";
@@ -202,21 +207,21 @@ impl BfProgram {
     ///# Ok(())
     ///# }
     /// ```
-    pub fn new<P: AsRef<Path>>(filename: P, file_contents: &str) -> Result<BfProgram, BftTypeError> {
+    pub fn new<P: AsRef<Path>>(
+        filename: P,
+        file_contents: &str,
+    ) -> Result<BfProgram, BftTypeError> {
         let mut instructions: Vec<LocalisedInstruction> = Vec::new();
         let jump_map = Vec::new();
 
         for (line_number, file_line) in file_contents.lines().enumerate() {
             for (col_number, character) in file_line.chars().enumerate() {
-                match Instruction::from_char(character) {
-                    None => (),
-                    Some(instr) => {
-                        instructions.push(LocalisedInstruction::new(
-                            instr,
-                            line_number + 1,
-                            col_number + 1,
-                        ));
-                    }
+                if let Some(new_instruction) = Instruction::from_char(character) {
+                    instructions.push(LocalisedInstruction::new(
+                        new_instruction,
+                        line_number + 1,
+                        col_number + 1,
+                    ));
                 }
             }
         }
@@ -258,7 +263,8 @@ impl BfProgram {
     /// counterpart jump ('[' and ']')
     ///```
     ///# use bft_types::BfProgram;
-    ///# fn main() -> Result<(),Box<dyn std::error::Error>>{
+    ///# use bft_types::BftTypeError;
+    ///# fn main() -> Result<(), BftTypeError>{
     ///  let my_bf_program = BfProgram::new("filename.bf","[program text] ++++.")?;
     ///  let current_program_address = 0;
     ///  let next_program_address = my_bf_program.jump_target(current_program_address);
@@ -295,7 +301,10 @@ impl BfProgram {
                         self.jump_map[counterpart_index] = Some(program_index + 1);
                     }
                     None => {
-                        return Err(BftTypeError::UnmatchedBackwardJump { program_name: self.name.clone(), bad_instruction: *program_instruction });
+                        return Err(BftTypeError::UnmatchedBackwardJump {
+                            program_name: self.name.clone(),
+                            bad_instruction: *program_instruction,
+                        });
                     }
                 }
             } else {
@@ -303,8 +312,11 @@ impl BfProgram {
             }
         }
 
-        if  let Some(unmatched_jump) = jump_instructions.pop() {
-            return Err(BftTypeError::UnmatchedForwardJump { program_name: self.name.clone(), bad_instruction: *unmatched_jump.1 });
+        if let Some(unmatched_jump) = jump_instructions.pop() {
+            return Err(BftTypeError::UnmatchedForwardJump {
+                program_name: self.name.clone(),
+                bad_instruction: *unmatched_jump.1,
+            });
         }
 
         Ok(())
@@ -314,6 +326,7 @@ impl BfProgram {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use assert_matches::assert_matches;
 
     /// Check that each char that represents an instruction parses correctly
     #[test]
@@ -368,15 +381,25 @@ mod tests {
 
         let result = BfProgram::new(filename, lines);
 
-        // Note: error message text matches the test program specifically
-        let expected_result = Err(
-            BftTypeError::UnmatchedForwardJump {
-                 program_name: PathBuf::from(filename),
-                  bad_instruction: LocalisedInstruction::new(Instruction::ConditionalJumpForward,2,2)
-                }
-            );
+        assert_matches!(
+            result,
+            Err(BftTypeError::UnmatchedForwardJump {
+                program_name: _,
+                bad_instruction: _
+            })
+        );
 
-        assert_eq!(result, expected_result);
+        if let Some(BftTypeError::UnmatchedForwardJump {
+            program_name,
+            bad_instruction,
+        }) = result.err()
+        {
+            assert_eq!(program_name, PathBuf::from("test_file.bf"));
+            assert_eq!(
+                bad_instruction,
+                LocalisedInstruction::new(Instruction::ConditionalJumpForward, 2, 2)
+            )
+        }
     }
 
     /// check that we find an unmatched ]
@@ -387,11 +410,24 @@ mod tests {
 
         let result = BfProgram::new(filename, lines);
 
-        // Note: error message text matches the test program specifically
-        let expected_result = Err(String::from(
-            "test_file.bf: Unmatched bracket on line 2, col 2",
-        ));
+        assert_matches!(
+            result,
+            Err(BftTypeError::UnmatchedBackwardJump {
+                program_name: _,
+                bad_instruction: _
+            })
+        );
 
-        assert_eq!(result, expected_result);
+        if let Some(BftTypeError::UnmatchedBackwardJump {
+            program_name,
+            bad_instruction,
+        }) = result.err()
+        {
+            assert_eq!(program_name, PathBuf::from("test_file.bf"));
+            assert_eq!(
+                bad_instruction,
+                LocalisedInstruction::new(Instruction::ConditionalJumpBackward, 2, 2)
+            )
+        }
     }
 }
