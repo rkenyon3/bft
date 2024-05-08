@@ -16,16 +16,16 @@ use bft_types::{BfProgram, Instruction, LocalisedInstruction};
 #[derive(Debug, Error)]
 pub enum VMError {
     /// The head ran off the start of the tape. Note that the tape may never be extended at the start.
-    #[error("Head underrun error occured at line {} column {}",.0.line_num(), .0.column_num())]
+    #[error("Head underrun error occured at line {} column {}", .0.line_num(), .0.column_num())]
     HeadUnderrun(LocalisedInstruction),
     /// The head ran off the end of the (non-auto-extending) tape.
-    #[error("Head overrun error occured at line {} column {}",.0.line_num(), .0.column_num())]
+    #[error("Head overrun error occured at line {} column {}", .0.line_num(), .0.column_num())]
     HeadOverrun(LocalisedInstruction),
     /// Reading a byte from stdio failed. The text of the underlying IO error is included.
-    #[error("Read error occured at line {} column {}: {}",.0.line_num(), .0.column_num(), .1)]
+    #[error("Read error occured at line {} column {}: {}", .0.line_num(), .0.column_num(), .1)]
     ReadError(LocalisedInstruction, std::io::Error),
     /// Writing a byte from stdio failed. The text of the underlying IO error is included.
-    #[error("Write error occured at line {} column {}: {}",.0.line_num(), .0.column_num(), .1)]
+    #[error("Write error occured at line {} column {}: {}", .0.line_num(), .0.column_num(), .1)]
     WriteError(LocalisedInstruction, std::io::Error),
 }
 
@@ -440,7 +440,7 @@ mod tests {
     // does reading error when the buffer has nothing to read
     #[test]
     fn test_read_bad() {
-        let test_program = BfProgram::new("some_name.bf",",").unwrap();
+        let test_program = BfProgram::new("some_name.bf", ",").unwrap();
         let mut vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
         let mut cursor = std::io::Cursor::new([0; 0]); // zero-length buffer to break the thing
 
@@ -468,7 +468,7 @@ mod tests {
     // does reading error correctly when the output has no space?
     #[test]
     fn test_write_bad() {
-        let test_program = BfProgram::new("some_name.bf",".").unwrap();
+        let test_program = BfProgram::new("some_name.bf", ".").unwrap();
         let vm: VirtualMachine<u8> = VirtualMachine::new(&test_program, None, false);
         let mut cursor = std::io::Cursor::new([0; 0]);
 
